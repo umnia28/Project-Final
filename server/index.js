@@ -20,8 +20,8 @@ import sellerStoreRoutes from "./routes/seller.store.routes.js";
 import ordersRoutes from "./routes/orders.routes.js";
 import publicProductsRoutes from "./routes/products.public.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
-
-
+import payoutRoutes from "./routes/payout.routes.js";
+import adminStoresRoutes from "./routes/admin.stores.routes.js";
 
 
 dotenv.config();
@@ -45,6 +45,8 @@ app.use("/api/products", productRoutes);
 app.use("/api/checkout", checkoutRoutes);
 app.use("/api/addresses", addressRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/payouts", payoutRoutes);
+app.use("/api/admin/stores", adminStoresRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/seller/orders", sellerOrdersRoutes);
 app.use("/api/admin/orders", adminOrdersRoutes);

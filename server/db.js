@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import pkg from 'pg';
 const { Pool } = pkg;
 
@@ -5,7 +6,7 @@ const pool = new Pool({
   user: 'postgres',
   host: 'localhost',
   database: 'CharisAtelier_db',
-  password: process.env.DB_PASSWORD,
+  password: 'Dol@088postgreSQL',
   port: 5432
 });
 

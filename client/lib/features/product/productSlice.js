@@ -5,9 +5,13 @@ const API = "http://localhost:5000";
 export const fetchDbProducts = createAsyncThunk(
   "product/fetchDbProducts",
   async (search = "") => {
-    const res = await fetch(`${API}/api/public/products?search=${encodeURIComponent(search)}`);
+    const res = await fetch(
+      `${API}/api/public/products?search=${encodeURIComponent(search)}`
+    );
     const data = await res.json();
+
     if (!res.ok) throw new Error(data.message || "Failed to load products");
+
     return data.products || [];
   }
 );
@@ -28,7 +32,7 @@ const productSlice = createSlice({
       })
       .addCase(fetchDbProducts.fulfilled, (state, action) => {
         state.loading = false;
-        state.list = action.payload; // ✅ ONLY DB
+        state.list = action.payload;
       })
       .addCase(fetchDbProducts.rejected, (state, action) => {
         state.loading = false;
@@ -38,6 +42,110 @@ const productSlice = createSlice({
 });
 
 export default productSlice.reducer;
+
+
+// import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+
+// const API = "http://localhost:5000";
+
+// export const fetchDbProducts = createAsyncThunk(
+//   "product/fetchDbProducts",
+//   async (search = "") => {
+//     const res = await fetch(
+//       `${API}/api/public/products?search=${encodeURIComponent(search)}`
+//     );
+//     const data = await res.json();
+
+//     if (!res.ok) throw new Error(data.message || "Failed to load products");
+
+//     const mappedProducts = (data.products || []).map((p) => ({
+//       id: p.product_id,
+//       name: p.product_name,
+//       description: p.product_description || "",
+//       price: Number(p.price) || 0,
+//       discountPrice: Number(p.discount_price) || 0,
+//       images: p.image_url
+//         ? [`http://localhost:5000/uploads/${p.image_url}`]
+//         : ["/placeholder.png"],
+//       category: p.category_name || "Uncategorized",
+//       stock: p.product_count ?? 0,
+//       status: p.status || "active",
+//       storeId: p.store_id,
+//       storeName: p.store_name || "",
+//     }));
+
+//     return mappedProducts;
+//   }
+// );
+
+// const productSlice = createSlice({
+//   name: "product",
+//   initialState: {
+//     list: [],
+//     loading: false,
+//     error: null,
+//   },
+//   reducers: {},
+//   extraReducers: (builder) => {
+//     builder
+//       .addCase(fetchDbProducts.pending, (state) => {
+//         state.loading = true;
+//         state.error = null;
+//       })
+//       .addCase(fetchDbProducts.fulfilled, (state, action) => {
+//         state.loading = false;
+//         state.list = action.payload;
+//       })
+//       .addCase(fetchDbProducts.rejected, (state, action) => {
+//         state.loading = false;
+//         state.error = action.error.message;
+//       });
+//   },
+// });
+
+// export default productSlice.reducer;
+
+
+// import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+
+// const API = "http://localhost:5000";
+
+// export const fetchDbProducts = createAsyncThunk(
+//   "product/fetchDbProducts",
+//   async (search = "") => {
+//     const res = await fetch(`${API}/api/public/products?search=${encodeURIComponent(search)}`);
+//     const data = await res.json();
+//     if (!res.ok) throw new Error(data.message || "Failed to load products");
+//     return data.products || [];
+//   }
+// );
+
+// const productSlice = createSlice({
+//   name: "product",
+//   initialState: {
+//     list: [],
+//     loading: false,
+//     error: null,
+//   },
+//   reducers: {},
+//   extraReducers: (builder) => {
+//     builder
+//       .addCase(fetchDbProducts.pending, (state) => {
+//         state.loading = true;
+//         state.error = null;
+//       })
+//       .addCase(fetchDbProducts.fulfilled, (state, action) => {
+//         state.loading = false;
+//         state.list = action.payload; // ✅ ONLY DB
+//       })
+//       .addCase(fetchDbProducts.rejected, (state, action) => {
+//         state.loading = false;
+//         state.error = action.error.message;
+//       });
+//   },
+// });
+
+// export default productSlice.reducer;
 
 
 

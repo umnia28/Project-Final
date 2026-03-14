@@ -5,7 +5,7 @@ const pool = new pg.Pool({
   user: 'postgres',
   host: 'localhost',
   database: 'CharisAtelier_db',
-  password: '1234',
+  password: 'Dol@088postgreSQL',
   port: 5432
 });
 
@@ -22,7 +22,7 @@ const createUser = async () => {
       `,
       [
         'admin',
-        'sarahhumayra28@gmail.com',
+        'adminCA8088@gmail.com',
         passwordHash,
         'Admin User',
         'active'
