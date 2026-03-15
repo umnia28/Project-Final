@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname } from "next/navigation"
-import { AxeIcon, CaravanIcon, HomeIcon, PiIcon, ShieldCheckIcon, StoreIcon, TicketPercentIcon, WalletIcon } from "lucide-react"
+import { AxeIcon, CaravanIcon, HomeIcon, PiIcon, ShieldCheckIcon, StoreIcon, TicketPercentIcon, WalletIcon ,ShoppingBasketIcon ,CatIcon,PercentSquare} from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { assets } from "@/assets/assets"
@@ -12,10 +12,13 @@ const AdminSidebar = () => {
 
     const sidebarLinks = [
         { name: 'Dashboard', href: '/admin/dashboard', icon: HomeIcon },
+        { name: "Profile", href: "/admin/profile", icon: CatIcon },
         { name: 'Stores', href: '/admin/stores', icon: StoreIcon },
+        { name: 'Orders', href: '/admin/orders', icon: ShoppingBasketIcon  },
         { name: 'Approve Seller', href: '/admin/sellers', icon: ShieldCheckIcon },
         { name: 'Promos', href: '/admin/promos', icon: TicketPercentIcon },
         { name: 'Refunds', href: '/admin/refunds', icon: PiIcon },
+        { name: "Notifications", href: "/admin/notifications", icon: PercentSquare },
 
         // NEW PAYOUTS LINK
         { name: 'Payouts', href: '/admin/payouts', icon: WalletIcon },

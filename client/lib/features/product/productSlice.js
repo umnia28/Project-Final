@@ -5,13 +5,9 @@ const API = "http://localhost:5000";
 export const fetchDbProducts = createAsyncThunk(
   "product/fetchDbProducts",
   async (search = "") => {
-    const res = await fetch(
-      `${API}/api/public/products?search=${encodeURIComponent(search)}`
-    );
+    const res = await fetch(`${API}/api/public/products?search=${encodeURIComponent(search)}`);
     const data = await res.json();
-
     if (!res.ok) throw new Error(data.message || "Failed to load products");
-
     return data.products || [];
   }
 );
@@ -32,7 +28,7 @@ const productSlice = createSlice({
       })
       .addCase(fetchDbProducts.fulfilled, (state, action) => {
         state.loading = false;
-        state.list = action.payload;
+        state.list = action.payload; // ✅ ONLY DB
       })
       .addCase(fetchDbProducts.rejected, (state, action) => {
         state.loading = false;
@@ -42,7 +38,6 @@ const productSlice = createSlice({
 });
 
 export default productSlice.reducer;
-
 
 // import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 

@@ -15,18 +15,18 @@ const Footer = () => {
         {
             title: "OUR PRODUCTS",
             links: [
-                { text: "Home Decor", path: '/', icon: null },
-                { text: "Pottery", path: '/', icon: null },
-                { text: "Art", path: '/', icon: null },
-                { text: "Handicraft", path: '/', icon: null },
+                { text: "Home Decor", path: '/homedecor', icon: null },
+                { text: "Pottery", path: '/pottery', icon: null },
+                { text: "Art", path: '/art', icon: null },
+                { text: "Handicraft", path: '/handicraft', icon: null },
             ]
         },
         {
             title: "MORE",
             links: [
                 { text: "Home", path: '/', icon: null },
-                { text: "Privacy Policy", path: '/', icon: null },
-                { text: "Want to be a Plus Member?", path: '/pricing', icon: null },
+                { text: "Privacy Policy", path: '/privacypolicy', icon: null },
+                { text: "Want to be a Plus Member?", path: '/plusmember', icon: null },
                 { text: "Become a Seller", path: '/become-seller', icon: null },  //become-seller
             ]
         },

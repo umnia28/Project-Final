@@ -8,6 +8,8 @@ import {
   ShoppingBasketIcon,
   TagsIcon,
   BoxesIcon,
+  CatIcon,
+  PercentSquare,
 } from "lucide-react";
 
 export default function SellerSidebar() {
@@ -15,10 +17,12 @@ export default function SellerSidebar() {
 
   const links = [
     { name: "Dashboard", href: "/seller", icon: HomeIcon },
+    { name: "Profile", href: "/seller/profile", icon: CatIcon },
     { name: "Store", href: "/seller/store", icon: StoreIcon },
     { name: "Products", href: "/seller/products", icon: ShoppingBasketIcon },
     { name: "Orders", href: "/seller/orders", icon: TagsIcon },
     { name: "Stock", href: "/seller/stock", icon: BoxesIcon },
+    { name: "Notifications", href: "/seller/notifications", icon: PercentSquare },
   ];
 
   return (

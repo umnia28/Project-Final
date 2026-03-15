@@ -1,77 +1,93 @@
-'use client';
+"use client";
 
 import { useEffect, useState } from "react";
+import axios from "axios";
 import RequireRole from "@/components/RequireRole";
 import Loading from "@/components/Loading";
-import OrdersAreaChart from "@/components/OrdersAreaChart";
 import {
   CircleDollarSignIcon,
   ShoppingBasketIcon,
   StoreIcon,
   TagsIcon,
+  UserPlusIcon,
+  BellIcon,
 } from "lucide-react";
-
-// TEMP: dummy data (replace with real API later)
-import { dummyAdminDashboardData } from "@/assets/assets";
 
 export default function AdminDashboard() {
   const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || "৳";
 
   const [loading, setLoading] = useState(true);
-  const [dashboardData, setDashboardData] = useState({
-    products: 0,
-    revenue: 0,
-    orders: 0,
-    stores: 0,
-    allOrders: [],
+  const [data, setData] = useState({
+    stats: {
+      total_products: 0,
+      total_revenue: 0,
+      total_orders: 0,
+      total_stores: 0,
+      pending_vendors: 0,
+      unread_notifications: 0,
+    },
+    recentOrders: [],
   });
 
-  const dashboardCardsData = [
-    {
-      title: "Total Products",
-      value: dashboardData.products,
-      icon: ShoppingBasketIcon,
-    },
-    {
-      title: "Total Revenue",
-      value: currency + dashboardData.revenue,
-      icon: CircleDollarSignIcon,
-    },
-    {
-      title: "Total Orders",
-      value: dashboardData.orders,
-      icon: TagsIcon,
-    },
-    {
-      title: "Total Stores",
-      value: dashboardData.stores,
-      icon: StoreIcon,
-    },
-  ];
-
-  const fetchDashboardData = async () => {
-    try {
-      // 🔒 later replace with real API:
-      // const token = localStorage.getItem("token");
-      // const res = await fetch("http://localhost:5000/api/admin/dashboard", {
-      //   headers: { Authorization: `Bearer ${token}` },
-      // });
-      // const data = await res.json();
-
-      // ✅ for now:
-      setDashboardData(dummyAdminDashboardData);
-    } catch (err) {
-      console.error("Dashboard load failed", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const token = localStorage.getItem("token");
+
+        const res = await axios.get("http://localhost:5000/api/admin/dashboard", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          withCredentials: true,
+        });
+
+        setData(res.data);
+      } catch (err) {
+        console.error("Admin dashboard load failed:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchDashboardData();
   }, []);
 
   if (loading) return <Loading />;
+
+  const { stats, recentOrders } = data;
+
+  const dashboardCardsData = [
+    {
+      title: "Total Products",
+      value: stats.total_products,
+      icon: ShoppingBasketIcon,
+    },
+    {
+      title: "Total Revenue",
+      value: currency + stats.total_revenue,
+      icon: CircleDollarSignIcon,
+    },
+    {
+      title: "Total Orders",
+      value: stats.total_orders,
+      icon: TagsIcon,
+    },
+    {
+      title: "Total Stores",
+      value: stats.total_stores,
+      icon: StoreIcon,
+    },
+    {
+      title: "Pending Vendors",
+      value: stats.pending_vendors,
+      icon: UserPlusIcon,
+    },
+    {
+      title: "Unread Notifications",
+      value: stats.unread_notifications,
+      icon: BellIcon,
+    },
+  ];
 
   return (
     <RequireRole allowedRoles={["admin"]}>
@@ -80,12 +96,11 @@ export default function AdminDashboard() {
           Admin <span className="text-slate-800 font-medium">Dashboard</span>
         </h1>
 
-        {/* Summary Cards */}
         <div className="flex flex-wrap gap-5 my-10 mt-4">
           {dashboardCardsData.map((card, index) => (
             <div
               key={index}
-              className="flex items-center gap-10 border border-slate-200 p-3 px-6 rounded-lg"
+              className="flex items-center gap-10 border border-slate-200 p-3 px-6 rounded-lg bg-white"
             >
               <div className="flex flex-col gap-3 text-xs">
                 <p>{card.title}</p>
@@ -101,8 +116,38 @@ export default function AdminDashboard() {
           ))}
         </div>
 
-        {/* Orders Chart */}
-        <OrdersAreaChart allOrders={dashboardData.allOrders} />
+        <div className="border border-slate-200 rounded-lg p-5 bg-white">
+          <h2 className="text-lg font-medium text-slate-700 mb-4">Recent Orders</h2>
+
+          {recentOrders.length === 0 ? (
+            <p className="text-slate-500">No recent orders found.</p>
+          ) : (
+            <div className="space-y-3">
+              {recentOrders.map((order) => (
+                <div
+                  key={order.order_id}
+                  className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 border border-slate-200 rounded-lg p-4"
+                >
+                  <div>
+                    <p className="font-semibold text-slate-700">
+                      Order #{order.order_id}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      Status: {order.latest_status || order.order_status || "placed"}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      Customer: {order.customer_full_name || order.customer_username || "N/A"}
+                    </p>
+                  </div>
+
+                  <div className="text-sm text-slate-700 font-medium">
+                    {currency} {order.total_price}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </RequireRole>
   );
