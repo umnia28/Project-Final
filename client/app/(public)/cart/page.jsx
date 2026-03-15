@@ -22,6 +22,22 @@ export default function Cart() {
   const [totalPrice, setTotalPrice] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState("cod");
 
+  // const normalizeImageUrl = (url) => {
+  //   if (!url || typeof url !== "string") return "/placeholder.png";
+
+  //   const clean = url.trim().replace(/^"+|"+$/g, "");
+  //   if (!clean) return "/placeholder.png";
+
+  //   if (clean.startsWith("http://") || clean.startsWith("https://")) {
+  //     return clean;
+  //   }
+
+  //   if (clean.startsWith("/")) {
+  //     return `http://localhost:5000${clean}`;
+  //   }
+
+  //   return `http://localhost:5000/${clean}`;
+  // };
   const normalizeImageUrl = (url) => {
     if (!url || typeof url !== "string") return "/placeholder.png";
 
@@ -32,11 +48,18 @@ export default function Cart() {
       return clean;
     }
 
-    if (clean.startsWith("/")) {
+    // backend-uploaded files
+    if (clean.startsWith("/uploads/")) {
       return `http://localhost:5000${clean}`;
     }
 
-    return `http://localhost:5000/${clean}`;
+    // frontend public files like /p_4.png, /placeholder.png
+    if (clean.startsWith("/")) {
+      return clean;
+    }
+
+    // plain uploaded filename from backend
+    return `http://localhost:5000/uploads/${clean}`;
   };
 
   const getImageFromProduct = (product) => {
@@ -74,11 +97,11 @@ export default function Cart() {
 
     return normalizeImageUrl(
       product.image_url ||
-        product.image ||
-        product.product_image ||
-        product.thumbnail ||
-        product.poster ||
-        product.cover_url
+      product.image ||
+      product.product_image ||
+      product.thumbnail ||
+      product.poster ||
+      product.cover_url
     );
   };
 

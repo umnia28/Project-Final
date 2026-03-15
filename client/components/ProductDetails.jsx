@@ -3,7 +3,7 @@
 import { addToCart } from "@/lib/features/cart/cartSlice";
 import { StarIcon, TagIcon, EarthIcon, CreditCardIcon, UserIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Counter from "./Counter";
 import { useDispatch, useSelector } from "react-redux";
@@ -15,7 +15,6 @@ const toPublicImageUrl = (img, fallback = FALLBACK_IMG) => {
   if (!img) return fallback;
 
   if (typeof img === "object" && typeof img.src === "string") return img;
-
   if (typeof img !== "string") return fallback;
 
   const s = img.trim();
@@ -25,7 +24,7 @@ const toPublicImageUrl = (img, fallback = FALLBACK_IMG) => {
   if (s.startsWith("/uploads/")) return `${API}${s}`;
   if (s.startsWith("/")) return s;
 
-  return fallback;
+  return `${API}/uploads/${s}`;
 };
 
 const ProductDetails = ({ product }) => {
@@ -48,6 +47,10 @@ const ProductDetails = ({ product }) => {
 
   const [mainImage, setMainImage] = useState(images[0] ?? FALLBACK_IMG);
 
+  useEffect(() => {
+    setMainImage(images[0] ?? FALLBACK_IMG);
+  }, [images]);
+
   const ratingArr = Array.isArray(product?.rating) ? product.rating : [];
   const averageRating =
     ratingArr.length > 0
@@ -68,21 +71,27 @@ const ProductDetails = ({ product }) => {
     <div className="flex max-lg:flex-col gap-12">
       <div className="flex max-sm:flex-col-reverse gap-3">
         <div className="flex sm:flex-col gap-3">
-          {images.map((image, index) => (
-            <div
-              key={index}
-              onClick={() => setMainImage(image)}
-              className="bg-slate-100 flex items-center justify-center size-26 rounded-lg group cursor-pointer"
-            >
-              <Image
-                src={toPublicImageUrl(image, FALLBACK_IMG)}
-                className="group-hover:scale-103 group-active:scale-95 transition"
-                alt=""
-                width={45}
-                height={45}
-              />
-            </div>
-          ))}
+          {images.map((image, index) => {
+            const thumbSrc = toPublicImageUrl(image, FALLBACK_IMG);
+            const isSelected = thumbSrc === mainSrc;
+
+            return (
+              <div
+                key={index}
+                onClick={() => setMainImage(image)}
+                className={`relative bg-slate-100 flex items-center justify-center size-26 rounded-lg group cursor-pointer overflow-hidden border ${
+                  isSelected ? "border-slate-400" : "border-transparent"
+                }`}
+              >
+                <Image
+                  src={thumbSrc}
+                  alt={`Thumbnail ${index + 1}`}
+                  fill
+                  className="object-contain p-2 group-hover:scale-105 group-active:scale-95 transition"
+                />
+              </div>
+            );
+          })}
         </div>
 
         <div className="relative flex justify-center items-center bg-gray-100 rounded-lg w-full max-w-md h-96 overflow-hidden">
