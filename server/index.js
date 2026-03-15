@@ -22,7 +22,7 @@ import publicProductsRoutes from "./routes/products.public.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import payoutRoutes from "./routes/payout.routes.js";
 import adminStoresRoutes from "./routes/admin.stores.routes.js";
-
+import promoRoutes from "./routes/promo.routes.js";
 
 dotenv.config();
 const app = express();
@@ -58,7 +58,7 @@ app.use("/api/seller", sellerStoreRoutes);
 app.use("/api/orders", ordersRoutes);
 app.use("/api/public/products", publicProductsRoutes);
 app.use("/api/upload", uploadRoutes);
-
+app.use("/api/promos", promoRoutes);
 
 
 

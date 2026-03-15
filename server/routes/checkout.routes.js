@@ -17,37 +17,117 @@ router.post("/create", verifyToken, async (req, res) => {
 
     await client.query("BEGIN");
 
-    let total = 0;
+    const deliveryCharge = 60;
 
-    // calculate total
+    let subtotal = 0;
+    const validatedItems = [];
+
     for (const item of items) {
-      const p = await client.query(
-        `SELECT price FROM product WHERE product_id=$1`,
+      const qty = Number(item.quantity);
+
+      if (!item.product_id || qty <= 0) {
+        throw new Error(`Invalid quantity or product for product_id ${item.product_id}`);
+      }
+
+      const productRes = await client.query(
+        `
+        SELECT product_id, price, product_count, status
+        FROM product
+        WHERE product_id = $1
+        FOR UPDATE
+        `,
         [item.product_id]
       );
 
-      const price = Number(p.rows[0].price);
-      total += price * item.quantity;
+      if (productRes.rows.length === 0) {
+        throw new Error(`Product ${item.product_id} not found`);
+      }
+
+      const product = productRes.rows[0];
+      const price = Number(product.price);
+      const stock = Number(product.product_count);
+      const status = product.status;
+
+      if (status !== "active") {
+        throw new Error(`Product ${item.product_id} is not available for ordering`);
+      }
+
+      if (stock <= 0) {
+        throw new Error(`Product ${item.product_id} is out of stock`);
+      }
+
+      if (qty > stock) {
+        throw new Error(`Only ${stock} item(s) available for product ${item.product_id}`);
+      }
+
+      const itemSubtotal = price * qty;
+      subtotal += itemSubtotal;
+
+      validatedItems.push({
+        product_id: item.product_id,
+        qty,
+        price,
+        itemSubtotal,
+      });
     }
 
-    // create order
-    // const orderResult = await client.query(
-    //   `
-    //   INSERT INTO "order"
-    //   (date_added, payment_status, delivery_charge, total_price)
-    //   VALUES (NOW(), 'pending', 60, $1)
-    //   RETURNING order_id
-    //   `,
-    //   [total]
-    // );
-    // const orderResult = await client.query(
-    //   `
-    //   INSERT INTO "order" (customer_id, date_added, payment_status, delivery_charge, total_price)
-    //   VALUES ($1, NOW(), 'pending', 60, $2)
-    //   RETURNING order_id
-    //   `,
-    //   [userId, total]
-    // );
+    const finalPaymentMethod = payment_method?.toLowerCase();
+
+    if (!["cod", "online"].includes(finalPaymentMethod)) {
+      throw new Error("Invalid payment method");
+    }
+
+    const paymentStatus = finalPaymentMethod === "cod" ? "unpaid" : "paid";
+
+    let totalDiscount = 0;
+    let appliedPromoId = null;
+
+    if (promo_id) {
+      const promoRes = await client.query(
+        `
+        SELECT
+          promo_id,
+          promo_name,
+          promo_status,
+          promo_discount,
+          promo_start_date,
+          promo_end_date
+        FROM promo
+        WHERE promo_id = $1
+        `,
+        [promo_id]
+      );
+
+      if (promoRes.rows.length === 0) {
+        throw new Error("Promo not found");
+      }
+
+      const promo = promoRes.rows[0];
+      const now = new Date();
+
+      if (promo.promo_status !== "active") {
+        throw new Error("Promo is not active");
+      }
+
+      if (promo.promo_start_date && new Date(promo.promo_start_date) > now) {
+        throw new Error("Promo has not started yet");
+      }
+
+      if (promo.promo_end_date && new Date(promo.promo_end_date) < now) {
+        throw new Error("Promo has expired");
+      }
+
+      const promoPercent = Number(promo.promo_discount);
+
+      if (promoPercent > 0) {
+        totalDiscount = Math.round((subtotal * promoPercent) / 100);
+        if (totalDiscount > subtotal) totalDiscount = subtotal;
+        appliedPromoId = promo.promo_id;
+      }
+    }
+
+    const finalTotal = subtotal - totalDiscount + deliveryCharge;
+
     const orderResult = await client.query(
       `
       INSERT INTO "order" (
@@ -61,38 +141,43 @@ router.post("/create", verifyToken, async (req, res) => {
         discount_amount,
         total_price
       )
-      VALUES ($1, $2, $3, NOW(), $4, 'pending', $5, $6, $7)
+      VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7, $8)
       RETURNING order_id
       `,
       [
         userId,
         address_id ?? null,
-        promo_id ?? null,
-        payment_method ?? 'cod',
-        60,
-        0,
-        total
+        appliedPromoId,
+        finalPaymentMethod,
+        paymentStatus,
+        deliveryCharge,
+        totalDiscount,
+        finalTotal,
       ]
     );
 
     const orderId = orderResult.rows[0].order_id;
 
-    // insert order items
-    for (const item of items) {
+    let distributedDiscount = 0;
 
-      const productResult = await client.query(
-        `SELECT price FROM product WHERE product_id = $1`,
-        [item.product_id]
-      );
+    for (let i = 0; i < validatedItems.length; i++) {
+      const item = validatedItems[i];
 
-      const price = Number(productResult.rows[0].price);
-      const qty = Number(item.quantity);
+      let itemDiscount = 0;
 
-      const discountAmount = 0;
-      const sellerEarnings = price * qty - discountAmount;
+      if (totalDiscount > 0) {
+        if (i === validatedItems.length - 1) {
+          itemDiscount = totalDiscount - distributedDiscount;
+        } else {
+          itemDiscount = Math.round((item.itemSubtotal / subtotal) * totalDiscount);
+          distributedDiscount += itemDiscount;
+        }
+      }
+
+      const sellerEarnings = item.itemSubtotal - itemDiscount;
 
       await client.query(
-            `
+        `
         INSERT INTO order_item (
           order_id,
           product_id,
@@ -103,18 +188,26 @@ router.post("/create", verifyToken, async (req, res) => {
         )
         VALUES ($1, $2, $3, $4, $5, $6)
         `,
-            [orderId, item.product_id, qty, price, discountAmount, sellerEarnings]
+        [
+          orderId,
+          item.product_id,
+          item.qty,
+          item.price,
+          itemDiscount,
+          sellerEarnings,
+        ]
+      );
+
+      await client.query(
+        `
+        UPDATE product
+        SET product_count = product_count - $1
+        WHERE product_id = $2
+        `,
+        [item.qty, item.product_id]
       );
     }
-    // insert order status
-    // await client.query(
-    //   `
-    //   INSERT INTO order_status
-    //   (order_id, status, updated_by)
-    //   VALUES ($1,'placed',$2)
-    //   `,
-    //   [orderId, userId]
-    // );
+
     await client.query(
       `
       INSERT INTO order_status (
@@ -125,7 +218,7 @@ router.post("/create", verifyToken, async (req, res) => {
       )
       VALUES ($1, $2, NOW(), $3)
       `,
-      [orderId, 'placed', userId]
+      [orderId, "placed", userId]
     );
 
     await client.query("COMMIT");
@@ -133,185 +226,21 @@ router.post("/create", verifyToken, async (req, res) => {
     res.json({
       message: "Order created",
       order_id: orderId,
+      subtotal,
+      delivery_charge: deliveryCharge,
+      discount_amount: totalDiscount,
+      total_price: finalTotal,
     });
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("ORDER CREATE ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+
+    res.status(500).json({
+      message: err.message || "Server error",
+    });
   } finally {
     client.release();
   }
 });
 
 export default router;
-
-
-// import express from "express";
-// import pool from '../db.js';
-// import { verifyToken } from "../middleware/verifyToken.js";
-// import { requireRole } from "../middleware/requireRole.js";
-
-// const router = express.Router();
-
-// /**
-//  * POST /api/checkout
-//  * body: {
-//  *   address_id: number,
-//  *   payment_method: "cod" | "bkash_mock" | "card_mock",
-//  *   promo_id?: number | null,
-//  *   items: [{ product_id: number, qty: number }]
-//  * }
-//  */
-// router.post("/", verifyToken, requireRole("customer"), async (req, res) => {
-//   const customerId = req.user.user_id;
-//   const { address_id, payment_method = "cod", promo_id = null, items } = req.body;
-
-//   if (!address_id) return res.status(400).json({ message: "address_id required" });
-//   if (!Array.isArray(items) || items.length === 0) {
-//     return res.status(400).json({ message: "items required" });
-//   }
-
-//   // normalize
-//   const normalized = items
-//     .map((i) => ({ product_id: Number(i.product_id), qty: Number(i.qty) }))
-//     .filter((i) => i.product_id > 0 && i.qty > 0);
-
-//   if (normalized.length === 0) {
-//     return res.status(400).json({ message: "Invalid items" });
-//   }
-
-//   const client = await pool.connect();
-
-//   try {
-//     await client.query("BEGIN");
-
-//     // create order first
-//     const orderRes = await client.query(
-//       `
-//       INSERT INTO "order"(customer_id, address_id, promo_id, payment_method, payment_status)
-//       VALUES ($1,$2,$3,$4,'pending')
-//       RETURNING order_id
-//       `,
-//       [customerId, address_id, promo_id, payment_method]
-//     );
-
-//     const orderId = orderRes.rows[0].order_id;
-
-//     let totalPrice = 0;
-//     let totalDiscount = 0;
-
-//     for (const it of normalized) {
-//       // lock the product row to prevent overselling
-//       const pr = await client.query(
-//         `
-//         SELECT product_id, price, discount, product_count, status, visibility_status
-//         FROM product
-//         WHERE product_id = $1
-//         FOR UPDATE
-//         `,
-//         [it.product_id]
-//       );
-
-//       if (pr.rows.length === 0) throw new Error(`Product not found: ${it.product_id}`);
-
-//       const p = pr.rows[0];
-
-//       if (p.status !== "active" || p.visibility_status !== true) {
-//         throw new Error(`Product not available: ${it.product_id}`);
-//       }
-
-//       if (p.product_count < it.qty) {
-//         throw new Error(`Insufficient stock for product ${it.product_id}`);
-//       }
-
-//       // update stock
-//       await client.query(
-//         `
-//         UPDATE product
-//         SET product_count = product_count - $1
-//         WHERE product_id = $2
-//         `,
-//         [it.qty, it.product_id]
-//       );
-
-//       const unitPrice = Number(p.price);
-//       const unitDiscount = Number(p.discount);
-
-//       const linePrice = unitPrice * it.qty;
-//       const lineDiscount = unitDiscount * it.qty;
-
-//       totalPrice += linePrice;
-//       totalDiscount += lineDiscount;
-
-//       // order_item insert
-//       await client.query(
-//         `
-//         INSERT INTO order_item (order_id, product_id, qty, price, discount_amount, seller_earnings)
-//         VALUES ($1,$2,$3,$4,$5,0)
-//         `,
-//         [orderId, it.product_id, it.qty, unitPrice, lineDiscount]
-//       );
-//     }
-
-//     // promo handling (simple fixed discount) - optional
-//     let promoDiscount = 0;
-//     if (promo_id) {
-//       const promoRes = await client.query(
-//         `
-//         SELECT promo_discount, promo_status, promo_start_date, promo_end_date
-//         FROM promo
-//         WHERE promo_id = $1
-//         `,
-//         [promo_id]
-//       );
-//       if (promoRes.rows.length > 0) {
-//         const promo = promoRes.rows[0];
-//         const today = new Date();
-//         const startOk = !promo.promo_start_date || new Date(promo.promo_start_date) <= today;
-//         const endOk = !promo.promo_end_date || new Date(promo.promo_end_date) >= today;
-
-//         if (promo.promo_status === "active" && startOk && endOk) {
-//           promoDiscount = Number(promo.promo_discount);
-//         }
-//       }
-//     }
-
-//     const finalTotal = Math.max(0, totalPrice - totalDiscount - promoDiscount);
-
-//     await client.query(
-//       `
-//       UPDATE "order"
-//       SET discount_amount = $1,
-//           total_price = $2
-//       WHERE order_id = $3
-//       `,
-//       [totalDiscount + promoDiscount, finalTotal, orderId]
-//     );
-
-//     // status timeline: placed
-//     await client.query(
-//       `
-//       INSERT INTO order_status(order_id, status_type, updated_by)
-//       VALUES ($1,'placed',$2)
-//       `,
-//       [orderId, customerId]
-//     );
-
-//     await client.query("COMMIT");
-
-//     res.status(201).json({
-//       message: "Order placed ✅",
-//       order_id: orderId,
-//       total_price: finalTotal,
-//       payment_status: "pending",
-//     });
-//   } catch (err) {
-//     await client.query("ROLLBACK");
-//     console.error("CHECKOUT ERROR:", err.message || err);
-//     res.status(400).json({ message: err.message || "Checkout failed" });
-//   } finally {
-//     client.release();
-//   }
-// });
-
-// export default router;
