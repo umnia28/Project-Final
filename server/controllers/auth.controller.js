@@ -9,12 +9,14 @@ const getUserRole = async (userId) => {
       CASE
         WHEN a.user_id IS NOT NULL THEN 'admin'
         WHEN s.user_id IS NOT NULL THEN 'seller'
+        WHEN d.user_id IS NOT NULL THEN 'delivery_man'
         WHEN c.user_id IS NOT NULL THEN 'customer'
         ELSE 'user'
       END AS role
     FROM users u
     LEFT JOIN admin a    ON a.user_id = u.user_id
     LEFT JOIN seller s   ON s.user_id = u.user_id
+    LEFT JOIN delivery_man d  ON d.user_id = u.user_id
     LEFT JOIN customer c ON c.user_id = u.user_id
     WHERE u.user_id = $1
     `,
@@ -135,6 +137,7 @@ export const me = async (req, res) => {
         CASE
           WHEN a.user_id IS NOT NULL THEN 'admin'
           WHEN s.user_id IS NOT NULL THEN 'seller'
+          WHEN d.user_id IS NOT NULL THEN 'delivery_man'
           WHEN c.user_id IS NOT NULL THEN 'customer'
           ELSE 'user'
         END AS role
@@ -142,6 +145,7 @@ export const me = async (req, res) => {
       FROM users u
       LEFT JOIN admin a    ON a.user_id = u.user_id
       LEFT JOIN seller s   ON s.user_id = u.user_id
+      LEFT JOIN delivery_man d ON d.user_id = u.user_id
       LEFT JOIN customer c ON c.user_id = u.user_id
       WHERE u.user_id = $1
       `,
@@ -189,12 +193,14 @@ export const refreshToken = async (req, res) => {
         CASE
           WHEN a.user_id IS NOT NULL THEN 'admin'
           WHEN s.user_id IS NOT NULL THEN 'seller'
+          WHEN d.user_id IS NOT NULL THEN 'delivery_man'
           WHEN c.user_id IS NOT NULL THEN 'customer'
           ELSE 'user'
         END AS role
       FROM users u
       LEFT JOIN admin a    ON a.user_id = u.user_id
       LEFT JOIN seller s   ON s.user_id = u.user_id
+      LEFT JOIN delivery_man d  ON d.user_id = u.user_id
       LEFT JOIN customer c ON c.user_id = u.user_id
       WHERE u.user_id = $1
       `,

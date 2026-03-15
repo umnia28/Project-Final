@@ -1,10 +1,20 @@
 import express from 'express';
 import pool from '../db.js';
-import { verifyToken } from '../middleware/auth.middleware.js';
+import { verifyToken } from "../middleware/verifyToken.js";
 import { isAdmin } from '../middleware/role.middleware.js';
-
+import {
+  getAdminNotifications,
+  markAdminNotificationSeen,
+} from "../controllers/admin.notifications.controller.js";
+import {
+  getAdminProfile,
+  updateAdminProfile,
+} from "../controllers/admin.profile.controller.js";
+import { getAdminDashboard } from "../controllers/admin.dashboard.controller.js";
 
 const router = express.Router();
+
+router.get("/dashboard", verifyToken, isAdmin, getAdminDashboard);
 
 // Get all pending vendors
 router.get('/vendors', verifyToken, isAdmin, async (req,res)=>{
@@ -12,22 +22,10 @@ router.get('/vendors', verifyToken, isAdmin, async (req,res)=>{
   res.json(result.rows);
 });
 
-export default router;
+router.get("/notifications", verifyToken, isAdmin, getAdminNotifications);
+router.patch("/notifications/:id/seen", verifyToken, isAdmin, markAdminNotificationSeen);
 
-/*import express from "express";
-import { verifyToken } from "../middlewares/verifyToken.js";
-import { requireRole } from "../middlewares/requireRole.js";
-
-const router = express.Router();
-
-router.get(
-  "/dashboard",
-  verifyToken,
-  requireRole("admin"),
-  async (req, res) => {
-    res.json({ message: "Admin dashboard access granted" });
-  }
-);
+router.get("/profile", verifyToken, isAdmin, getAdminProfile);
+router.put("/profile", verifyToken, isAdmin, updateAdminProfile);
 
 export default router;
-*/

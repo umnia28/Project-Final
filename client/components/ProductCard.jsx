@@ -10,6 +10,7 @@ const FALLBACK_IMG = "/placeholder.png";
 const toPublicImageUrl = (img, fallback = FALLBACK_IMG) => {
   if (!img) return fallback;
 
+  // Next static import object support
   if (typeof img === "object" && typeof img.src === "string") return img;
 
   if (typeof img !== "string") return fallback;
@@ -17,13 +18,18 @@ const toPublicImageUrl = (img, fallback = FALLBACK_IMG) => {
   const s = img.trim();
   if (!s) return fallback;
 
+  // already absolute
   if (s.startsWith("http://") || s.startsWith("https://")) return s;
 
+  // DB stored as "/uploads/..."
   if (s.startsWith("/uploads/")) return `${API}${s}`;
 
+  // local public file ("/placeholder.png", "/some.png")
   if (s.startsWith("/")) return s;
 
   return `${API}/uploads/${s}`;
+  // anything else fallback
+  return fallback;
 };
 
 const ProductCard = ({ product }) => {
@@ -91,5 +97,7 @@ const ProductCard = ({ product }) => {
   )
 }
 
-
 export default ProductCard
+
+
+
