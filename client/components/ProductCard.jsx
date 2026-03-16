@@ -2,7 +2,13 @@
 
 import { useMemo, useState } from "react";
 import axios from "axios";
-import { Heart, StarIcon, ShoppingBag, PackageCheck, PackageX } from "lucide-react";
+import {
+  Heart,
+  StarIcon,
+  ShoppingBag,
+  PackageCheck,
+  PackageX,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -33,7 +39,8 @@ const formatPrice = (value) => {
 };
 
 const getProductId = (product) => product?.product_id ?? product?.id ?? null;
-const getProductName = (product) => product?.product_name ?? product?.name ?? "Product";
+const getProductName = (product) =>
+  product?.product_name ?? product?.name ?? "Product";
 
 const getProductImage = (product) => {
   if (Array.isArray(product?.images) && product.images.length > 0) {
@@ -42,6 +49,13 @@ const getProductImage = (product) => {
   if (product?.image_url) return toPublicImageUrl(product.image_url);
   if (product?.image) return toPublicImageUrl(product.image);
   return FALLBACK_IMG;
+};
+
+const getRatingArray = (product) => {
+  if (Array.isArray(product?.rating)) return product.rating;
+  if (Array.isArray(product?.reviews)) return product.reviews;
+  if (Array.isArray(product?.product_reviews)) return product.product_reviews;
+  return [];
 };
 
 const getAverageRating = (product) => {
@@ -53,10 +67,20 @@ const getAverageRating = (product) => {
     return Number(product.avg_rating) || 0;
   }
 
-  if (Array.isArray(product?.rating) && product.rating.length > 0) {
+  if (
+    product?.average_rating !== undefined &&
+    product?.average_rating !== null
+  ) {
+    return Number(product.average_rating) || 0;
+  }
+
+  const ratingArray = getRatingArray(product);
+  if (ratingArray.length > 0) {
     const avg =
-      product.rating.reduce((acc, curr) => acc + Number(curr?.rating || 0), 0) /
-      product.rating.length;
+      ratingArray.reduce(
+        (acc, curr) => acc + Number(curr?.rating || 0),
+        0
+      ) / ratingArray.length;
     return Number(avg) || 0;
   }
 
@@ -68,14 +92,18 @@ const getRatingCount = (product) => {
     return Number(product.rating_count) || 0;
   }
 
-  if (Array.isArray(product?.rating)) {
-    return product.rating.length;
+  if (product?.review_count !== undefined && product?.review_count !== null) {
+    return Number(product.review_count) || 0;
   }
 
-  return 0;
+  return getRatingArray(product).length;
 };
 
-const ProductCard = ({ product, initialWishlisted = false, onWishlistChange }) => {
+const ProductCard = ({
+  product,
+  initialWishlisted = false,
+  onWishlistChange,
+}) => {
   const [wishlisted, setWishlisted] = useState(initialWishlisted);
   const [wishlistLoading, setWishlistLoading] = useState(false);
 
@@ -93,10 +121,15 @@ const ProductCard = ({ product, initialWishlisted = false, onWishlistChange }) =
   const status = String(product?.status || "").toLowerCase();
 
   const isOutOfStock =
-    status === "inactive" || (hasStockField && !Number.isNaN(stock) && stock <= 0);
+    status === "inactive" ||
+    (hasStockField && !Number.isNaN(stock) && stock <= 0);
 
   const isLowStock =
-    !isOutOfStock && hasStockField && !Number.isNaN(stock) && stock > 0 && stock <= 5;
+    !isOutOfStock &&
+    hasStockField &&
+    !Number.isNaN(stock) &&
+    stock > 0 &&
+    stock <= 5;
 
   const handleToggleWishlist = async (e) => {
     e.preventDefault();
@@ -167,14 +200,15 @@ const ProductCard = ({ product, initialWishlisted = false, onWishlistChange }) =
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = "translateY(-4px)";
-          e.currentTarget.style.boxShadow = "0 28px 80px rgba(168,85,247,0.14)";
+          e.currentTarget.style.boxShadow =
+            "0 28px 80px rgba(168,85,247,0.14)";
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.transform = "translateY(0)";
-          e.currentTarget.style.boxShadow = "0 24px 70px rgba(168,85,247,0.08)";
+          e.currentTarget.style.boxShadow =
+            "0 24px 70px rgba(168,85,247,0.08)";
         }}
       >
-        {/* Wishlist Button */}
         <button
           type="button"
           onClick={handleToggleWishlist}
@@ -212,7 +246,6 @@ const ProductCard = ({ product, initialWishlisted = false, onWishlistChange }) =
           href={productId ? `/product/${productId}` : "#"}
           style={{ display: "block", textDecoration: "none" }}
         >
-          {/* Image section */}
           <div
             style={{
               position: "relative",
@@ -234,7 +267,8 @@ const ProductCard = ({ product, initialWishlisted = false, onWishlistChange }) =
                 width: 110,
                 height: 110,
                 borderRadius: "50%",
-                background: "radial-gradient(circle, rgba(236,72,153,0.18), transparent 70%)",
+                background:
+                  "radial-gradient(circle, rgba(236,72,153,0.18), transparent 70%)",
               }}
             />
             <div
@@ -246,7 +280,8 @@ const ProductCard = ({ product, initialWishlisted = false, onWishlistChange }) =
                 width: 120,
                 height: 120,
                 borderRadius: "50%",
-                background: "radial-gradient(circle, rgba(249,115,22,0.14), transparent 70%)",
+                background:
+                  "radial-gradient(circle, rgba(249,115,22,0.14), transparent 70%)",
               }}
             />
 
@@ -280,7 +315,9 @@ const ProductCard = ({ product, initialWishlisted = false, onWishlistChange }) =
               alt={productName}
               width={900}
               height={900}
-              unoptimized={typeof imgSrc === "string" && imgSrc.startsWith("http")}
+              unoptimized={
+                typeof imgSrc === "string" && imgSrc.startsWith("http")
+              }
               style={{
                 width: "100%",
                 height: "100%",
@@ -291,7 +328,6 @@ const ProductCard = ({ product, initialWishlisted = false, onWishlistChange }) =
             />
           </div>
 
-          {/* Content */}
           <div style={{ padding: "4px 18px 20px" }}>
             <div
               style={{
@@ -406,7 +442,9 @@ const ProductCard = ({ product, initialWishlisted = false, onWishlistChange }) =
                       }}
                     >
                       <PackageCheck size={13} />
-                      {hasStockField && !Number.isNaN(stock) ? `In Stock: ${stock}` : "Available"}
+                      {hasStockField && !Number.isNaN(stock)
+                        ? `In Stock: ${stock}`
+                        : "Available"}
                     </span>
                   )}
                 </div>

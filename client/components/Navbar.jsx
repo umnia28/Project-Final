@@ -262,7 +262,7 @@ const Navbar = () => {
 
           {user?.role === "customer" && (
             <Link href="/customer/myorders" className="px-4 py-2 rounded-full text-sm text-slate-700 hover:bg-purple-50 transition">
-              My Orders
+               My<b>Orders</b>
             </Link>
           )}
 
@@ -304,7 +304,7 @@ const Navbar = () => {
             <div className="hidden sm:flex items-center gap-3 bg-white/80 border border-white/70 backdrop-blur rounded-full px-4 py-2 shadow-sm">
 
               <span className="text-sm text-slate-700">
-                Hi, <b>{user.username}</b>
+                Welcome, <br></br><b>{user.username}!</b>
               </span>
 
               {/* Dashboard button */}
@@ -332,7 +332,7 @@ const Navbar = () => {
                   transition
                 "
               >
-                <Sparkles size={12}/>
+                
                 Dashboard
               </Link>
 

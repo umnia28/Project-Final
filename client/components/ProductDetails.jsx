@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import { addToCart } from "@/lib/features/cart/cartSlice";
 import {
@@ -9,7 +9,8 @@ import {
   UserIcon,
   ShoppingBag,
   Sparkles,
-  ShieldCheck,
+  PackageCheck,
+  PackageX,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -36,6 +37,55 @@ const toPublicImageUrl = (img, fallback = FALLBACK_IMG) => {
   return `${API}/uploads/${s}`;
 };
 
+const getRatingArray = (product) => {
+  if (Array.isArray(product?.rating)) return product.rating;
+  if (Array.isArray(product?.reviews)) return product.reviews;
+  if (Array.isArray(product?.product_reviews)) return product.product_reviews;
+  return [];
+};
+
+const getNormalizedAverageRating = (product) => {
+  if (product?.rating_avg !== undefined && product?.rating_avg !== null) {
+    return Number(product.rating_avg) || 0;
+  }
+
+  if (product?.avg_rating !== undefined && product?.avg_rating !== null) {
+    return Number(product.avg_rating) || 0;
+  }
+
+  if (
+    product?.average_rating !== undefined &&
+    product?.average_rating !== null
+  ) {
+    return Number(product.average_rating) || 0;
+  }
+
+  const ratingArray = getRatingArray(product);
+  if (ratingArray.length > 0) {
+    const avg =
+      ratingArray.reduce(
+        (acc, item) => acc + (Number(item?.rating) || 0),
+        0
+      ) / ratingArray.length;
+
+    return Number(avg) || 0;
+  }
+
+  return 0;
+};
+
+const getNormalizedRatingCount = (product) => {
+  if (product?.rating_count !== undefined && product?.rating_count !== null) {
+    return Number(product.rating_count) || 0;
+  }
+
+  if (product?.review_count !== undefined && product?.review_count !== null) {
+    return Number(product.review_count) || 0;
+  }
+
+  return getRatingArray(product).length;
+};
+
 const ProductDetails = ({ product }) => {
   const router = useRouter();
   const dispatch = useDispatch();
@@ -44,12 +94,21 @@ const ProductDetails = ({ product }) => {
   const normalized = useMemo(() => {
     if (!product) return null;
 
+    const ratingArray = getRatingArray(product);
+    const normalizedAvg = getNormalizedAverageRating(product);
+    const normalizedCount = getNormalizedRatingCount(product);
+
     return {
       ...product,
       id: product.id ?? product.product_id,
+      product_id: product.product_id ?? product.id,
       name: product.name ?? product.product_name ?? "Untitled Product",
+      product_name: product.product_name ?? product.name ?? "Untitled Product",
       description: product.description ?? product.product_description ?? "",
+      product_description:
+        product.product_description ?? product.description ?? "",
       category: product.category ?? product.category_name ?? "Artwork",
+      category_name: product.category_name ?? product.category ?? "Artwork",
       price: Number(product.price ?? 0),
       mrp:
         product.mrp !== undefined && product.mrp !== null
@@ -57,7 +116,11 @@ const ProductDetails = ({ product }) => {
           : null,
       product_count: Number(product.product_count ?? 0),
       status: String(product.status ?? "active").toLowerCase(),
-      rating: Array.isArray(product.rating) ? product.rating : [],
+      images: Array.isArray(product.images) ? product.images : [],
+
+      rating: ratingArray,
+      rating_avg: Number.isNaN(normalizedAvg) ? 0 : normalizedAvg,
+      rating_count: Number.isNaN(normalizedCount) ? 0 : normalizedCount,
     };
   }, [product]);
 
@@ -84,31 +147,26 @@ const ProductDetails = ({ product }) => {
     setMainImage(images[0] ?? FALLBACK_IMG);
   }, [images]);
 
-  const ratingArr = normalized?.rating || [];
-  const averageRating =
-    ratingArr.length > 0
-      ? ratingArr.reduce((acc, item) => acc + (Number(item?.rating) || 0), 0) / ratingArr.length
-      : 0;
+  const averageRating = Number(normalized?.rating_avg || 0);
+  const reviewCount = Number(normalized?.rating_count || 0);
+  const roundedRating = Math.round(averageRating);
 
   const mainSrc = toPublicImageUrl(mainImage, FALLBACK_IMG);
 
-  // ✅ schema-accurate stock logic
-  const stock = normalized?.product_count ?? 0;
+  const stock = Number(normalized?.product_count ?? 0);
   const isOutOfStock = stock <= 0 || normalized?.status !== "active";
 
   const discountPercent =
     normalized?.mrp && normalized.mrp > normalized.price
-      ? Math.round(((normalized.mrp - normalized.price) / normalized.mrp) * 100)
+      ? Math.round(
+          ((normalized.mrp - normalized.price) / normalized.mrp) * 100
+        )
       : 0;
 
   const addToCartHandler = () => {
     if (!productId || isOutOfStock) return;
     dispatch(addToCart({ productId }));
   };
-
-  useEffect(() => {
-    console.log("SCHEMA DEBUG PRODUCT =", normalized);
-  }, [normalized]);
 
   if (!normalized) return null;
 
@@ -191,21 +249,21 @@ const ProductDetails = ({ product }) => {
 
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <div className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-pink-100 via-purple-100 to-orange-100 px-3 py-2 shadow-sm">
-              {Array(5).fill("").map((_, index) => (
+              {Array.from({ length: 5 }).map((_, index) => (
                 <StarIcon
                   key={index}
                   size={15}
                   className="text-transparent"
-                  fill={averageRating >= index + 1 ? "#f59e0b" : "#d1d5db"}
+                  fill={roundedRating >= index + 1 ? "#f59e0b" : "#d1d5db"}
                 />
               ))}
               <span className="ml-2 text-sm font-semibold text-slate-700">
-                {averageRating ? averageRating.toFixed(1) : "0.0"}
+                {averageRating > 0 ? averageRating.toFixed(1) : "0.0"}
               </span>
             </div>
 
             <p className="text-sm text-slate-500">
-              {ratingArr.length} Review{ratingArr.length !== 1 ? "s" : ""}
+              {reviewCount} Review{reviewCount !== 1 ? "s" : ""}
             </p>
 
             <span className="rounded-full border border-purple-100 bg-purple-50 px-3 py-1 text-xs font-medium text-purple-700">
@@ -216,12 +274,14 @@ const ProductDetails = ({ product }) => {
           <div className="mt-7 rounded-[1.5rem] bg-gradient-to-r from-white via-pink-50/70 to-orange-50/70 p-5 shadow-inner">
             <div className="flex flex-wrap items-end gap-3">
               <p className="text-3xl font-bold text-slate-800">
-                {currency}{normalized.price}
+                {currency}
+                {normalized.price}
               </p>
 
               {normalized.mrp && normalized.mrp > normalized.price ? (
                 <p className="text-lg text-slate-400 line-through">
-                  {currency}{normalized.mrp}
+                  {currency}
+                  {normalized.mrp}
                 </p>
               ) : null}
             </div>
@@ -241,15 +301,18 @@ const ProductDetails = ({ product }) => {
 
           <div className="mt-6">
             {isOutOfStock ? (
-              <div className="inline-flex rounded-full bg-rose-100 px-4 py-2 text-sm font-semibold text-rose-600">
+              <div className="inline-flex items-center gap-2 rounded-full bg-rose-100 px-4 py-2 text-sm font-semibold text-rose-600">
+                <PackageX size={14} />
                 Out of Stock
               </div>
             ) : stock <= 5 ? (
-              <div className="inline-flex rounded-full bg-orange-100 px-4 py-2 text-sm font-semibold text-orange-600">
+              <div className="inline-flex items-center gap-2 rounded-full bg-orange-100 px-4 py-2 text-sm font-semibold text-orange-600">
+                <ShoppingBag size={14} />
                 Only {stock} left in stock
               </div>
             ) : (
-              <div className="inline-flex rounded-full bg-emerald-100 px-4 py-2 text-sm font-semibold text-emerald-600">
+              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-4 py-2 text-sm font-semibold text-emerald-600">
+                <PackageCheck size={14} />
                 In Stock
               </div>
             )}
@@ -308,7 +371,9 @@ const ProductDetails = ({ product }) => {
             <div className="flex items-start gap-3 rounded-2xl bg-white/70 p-4 shadow-sm">
               <EarthIcon className="mt-0.5 h-5 w-5 text-purple-500" />
               <div>
-                <p className="font-semibold text-slate-800">Free Shipping Above 999 Tk</p>
+                <p className="font-semibold text-slate-800">
+                  Free Shipping Above 999 Tk
+                </p>
                 <p className="mt-1 text-sm text-slate-500">
                   Enjoy complimentary delivery on qualifying orders.
                 </p>
@@ -318,7 +383,9 @@ const ProductDetails = ({ product }) => {
             <div className="flex items-start gap-3 rounded-2xl bg-white/70 p-4 shadow-sm">
               <UserIcon className="mt-0.5 h-5 w-5 text-orange-500" />
               <div>
-                <p className="font-semibold text-slate-800">Authentic Handmade Products</p>
+                <p className="font-semibold text-slate-800">
+                  Authentic Handmade Products
+                </p>
                 <p className="mt-1 text-sm text-slate-500">
                   Carefully crafted pieces with a unique artistic touch.
                 </p>

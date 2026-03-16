@@ -1,5 +1,5 @@
 'use client'
-import { Suspense, useEffect } from "react"
+import { Suspense, useCallback, useEffect } from "react"
 import ProductCard from "@/components/ProductCard"
 import { MoveLeftIcon, Sparkles } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -12,28 +12,51 @@ function ShopContent() {
   const router = useRouter()
   const dispatch = useDispatch()
 
-  const products = useSelector((state) => state.product.list)
+  const products = useSelector((state) => state.product.list || [])
 
-  useEffect(() => {
+  const loadProducts = useCallback(() => {
     dispatch(fetchDbProducts(search))
   }, [dispatch, search])
 
+  useEffect(() => {
+    loadProducts()
+  }, [loadProducts])
+
+  // Refetch when tab becomes active again
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadProducts()
+      }
+    }
+
+    const handleFocus = () => {
+      loadProducts()
+    }
+
+    window.addEventListener("focus", handleFocus)
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener("focus", handleFocus)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
+  }, [loadProducts])
+
   const filteredProducts = search
     ? products.filter((p) =>
-        (p.name || "").toLowerCase().includes(search.toLowerCase())
+        (p.name || p.product_name || "").toLowerCase().includes(search.toLowerCase())
       )
     : products
 
   return (
     <div className="relative min-h-[70vh] overflow-hidden px-6">
-      {/* Soft background */}
       <div className="pointer-events-none absolute inset-0 -z-20 bg-gradient-to-br from-pink-50 via-white to-orange-50" />
       <div className="pointer-events-none absolute -top-20 left-0 -z-10 h-72 w-72 rounded-full bg-pink-200/30 blur-3xl" />
       <div className="pointer-events-none absolute top-32 right-0 -z-10 h-80 w-80 rounded-full bg-purple-200/25 blur-3xl" />
       <div className="pointer-events-none absolute bottom-0 left-1/3 -z-10 h-72 w-72 rounded-full bg-orange-200/25 blur-3xl" />
 
       <div className="max-w-7xl mx-auto py-8">
-        {/* Top heading area */}
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-pink-200/70 bg-gradient-to-r from-pink-100/80 via-purple-100/80 to-orange-100/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-slate-700 shadow-sm">
@@ -45,7 +68,7 @@ function ShopContent() {
               {search ? `Results for “${search}”` : "All Products"}
             </h1>
 
-            <p className="mt-2 text-sm sm:text-base text-slate-600 max-w-2xl">
+            <p className="mt-2 max-w-2xl text-sm sm:text-base text-slate-600">
               Explore handcrafted beauty, timeless décor, and curated artistic finds.
             </p>
           </div>
@@ -61,21 +84,23 @@ function ShopContent() {
           )}
         </div>
 
-        {/* Products block */}
-        <div className="rounded-[2rem] border border-white/60 bg-white/65 p-5 sm:p-7 shadow-[0_20px_70px_rgba(236,72,153,0.08)] backdrop-blur-xl">
+        <div className="rounded-[2rem] border border-white/60 bg-white/65 p-5 shadow-[0_20px_70px_rgba(236,72,153,0.08)] backdrop-blur-xl sm:p-7">
           {filteredProducts.length > 0 ? (
-            <div className="grid grid-cols-2 sm:flex flex-wrap gap-6 xl:gap-12 mx-auto mb-10">
+            <div className="mx-auto mb-10 grid grid-cols-2 gap-6 sm:flex sm:flex-wrap xl:gap-12">
               {filteredProducts.map((product) => (
-                <ProductCard key={product.id || product.product_id} product={product} />
+                <ProductCard
+                  key={product.id || product.product_id}
+                  product={product}
+                />
               ))}
             </div>
           ) : (
             <div className="flex min-h-[260px] items-center justify-center">
               <div className="rounded-[1.75rem] border border-white/70 bg-gradient-to-br from-white/85 via-pink-50/70 to-orange-50/60 px-8 py-12 text-center shadow-[0_15px_40px_rgba(244,114,182,0.08)]">
-                <h2 className="text-2xl font-semibold bg-gradient-to-r from-pink-500 via-purple-500 to-orange-400 bg-clip-text text-transparent">
+                <h2 className="bg-gradient-to-r from-pink-500 via-purple-500 to-orange-400 bg-clip-text text-2xl font-semibold text-transparent">
                   No products found
                 </h2>
-                <p className="mt-3 max-w-md text-sm text-slate-500 leading-7">
+                <p className="mt-3 max-w-md text-sm leading-7 text-slate-500">
                   We couldn’t find anything matching your search.
                   Try a different keyword or explore the full collection.
                 </p>
@@ -113,7 +138,6 @@ export default function Shop() {
     </Suspense>
   )
 }
-
 
 
 /*'use client';
