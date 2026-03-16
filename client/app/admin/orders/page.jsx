@@ -500,8 +500,6 @@ export default function AdminOrdersPage() {
               </h1>
 
               <p className="mt-2 text-slate-500 max-w-2xl leading-7">
-                Manage all customer orders, assign delivery men, cancel orders,
-                and process refunds from one elegant control center.
               </p>
             </div>
 

@@ -205,8 +205,6 @@ export default function AdminStores() {
               </h1>
 
               <p className="mt-2 text-slate-500 max-w-2xl leading-7">
-                Monitor seller storefronts, review live status, and quickly activate
-                or deactivate stores from one elegant admin panel.
               </p>
             </div>
 

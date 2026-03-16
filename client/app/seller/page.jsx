@@ -142,26 +142,39 @@ import Loading from "@/components/Loading";
 import axios from "axios";
 import OrdersAreaChart from "@/components/OrdersAreaChart";
 import {
-  CircleDollarSignIcon,
-  ShoppingBasketIcon,
-  TagsIcon,
-  StoreIcon,
-  SparklesIcon,
-  ArrowUpRightIcon,
-  StoreIcon as SellerStoreIcon,
+  CircleDollarSignIcon, ShoppingBasketIcon, TagsIcon, StoreIcon,
+  SparklesIcon, ArrowUpRightIcon, StoreIcon as SellerStoreIcon, User, TrendingUp,
 } from "lucide-react";
+
+const statusStyles = {
+  placed:     { bg: "linear-gradient(135deg,#fce7f3,#fecdd3)", text: "#9f1239", dot: "#f43f5e" },
+  processing: { bg: "linear-gradient(135deg,#fdf4ff,#fce7f3)", text: "#7e22ce", dot: "#a855f7" },
+  shipped:    { bg: "linear-gradient(135deg,#fce7f3,#e9d5ff)", text: "#6b21a8", dot: "#c084fc" },
+  delivered:  { bg: "linear-gradient(135deg,#e9d5ff,#fed7aa)", text: "#7c3aed", dot: "#a855f7" },
+  cancelled:  { bg: "linear-gradient(135deg,#f5f3ff,#ede9fe)", text: "#4c1d95", dot: "#8b5cf6" },
+};
+
+function StatusBadge({ status }) {
+  const s = statusStyles[status?.toLowerCase()] || { bg: "linear-gradient(135deg,#f5f3ff,#ede9fe)", text: "#4c1d95", dot: "#8b5cf6" };
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 5,
+      background: s.bg, color: s.text,
+      fontSize: 10, fontFamily: "sans-serif", fontWeight: 600,
+      letterSpacing: "0.08em", textTransform: "uppercase",
+      padding: "3px 9px", borderRadius: 999,
+    }}>
+      <span style={{ width: 5, height: 5, borderRadius: "50%", background: s.dot, flexShrink: 0 }} />
+      {status || "placed"}
+    </span>
+  );
+}
 
 export default function SellerDashboard() {
   const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || "৳";
-
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState({
-    stats: {
-      total_products: 0,
-      total_revenue: 0,
-      total_orders: 0,
-      total_stores: 0,
-    },
+    stats: { total_products: 0, total_revenue: 0, total_orders: 0, total_stores: 0 },
     recentOrders: [],
   });
 
@@ -169,205 +182,187 @@ export default function SellerDashboard() {
     const fetchDashboardData = async () => {
       try {
         const token = localStorage.getItem("token");
-
         const res = await axios.get("http://localhost:5000/api/seller/dashboard", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          withCredentials: true,
+          headers: { Authorization: `Bearer ${token}` }, withCredentials: true,
         });
-
         setData(res.data);
-      } catch (err) {
-        console.error("Seller dashboard load failed:", err);
-      } finally {
-        setLoading(false);
-      }
+      } catch (err) { console.error("Seller dashboard load failed:", err); }
+      finally { setLoading(false); }
     };
-
     fetchDashboardData();
   }, []);
 
   if (loading) return <Loading />;
-
   const { stats, recentOrders } = data;
 
   const dashboardCardsData = [
-    {
-      title: "Total Products",
-      value: stats.total_products,
-      icon: ShoppingBasketIcon,
-      accent: "from-pink-500 to-rose-500",
-      iconBg: "bg-pink-100",
-      iconColor: "text-pink-600",
-    },
-    {
-      title: "Total Revenue",
-      value: `${currency}${stats.total_revenue}`,
-      icon: CircleDollarSignIcon,
-      accent: "from-emerald-500 to-teal-500",
-      iconBg: "bg-emerald-100",
-      iconColor: "text-emerald-600",
-    },
-    {
-      title: "Total Orders",
-      value: stats.total_orders,
-      icon: TagsIcon,
-      accent: "from-violet-500 to-fuchsia-500",
-      iconBg: "bg-violet-100",
-      iconColor: "text-violet-600",
-    },
-    {
-      title: "Total Stores",
-      value: stats.total_stores,
-      icon: StoreIcon,
-      accent: "from-orange-500 to-amber-500",
-      iconBg: "bg-orange-100",
-      iconColor: "text-orange-600",
-    },
+    { title: "Total Products", value: stats.total_products,               icon: ShoppingBasketIcon,   gradFrom: "#fce7f3", gradTo: "#e9d5ff", iconColor: "#be185d", border: "#f9a8d4"  },
+    { title: "Total Revenue",  value: `${currency}${stats.total_revenue}`, icon: CircleDollarSignIcon, gradFrom: "#e9d5ff", gradTo: "#ddd6fe", iconColor: "#7c3aed", border: "#c4b5fd" },
+    { title: "Total Orders",   value: stats.total_orders,                  icon: TagsIcon,             gradFrom: "#fdf4ff", gradTo: "#fce7f3", iconColor: "#a855f7", border: "#e9d5ff" },
+    { title: "Total Stores",   value: stats.total_stores,                  icon: StoreIcon,            gradFrom: "#fce7f3", gradTo: "#fed7aa", iconColor: "#c2410c", border: "#fdba74" },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-orange-50 p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="rounded-3xl bg-gradient-to-r from-pink-400 via-purple-400 to-orange-400 p-[2px] shadow-xl">
-          <div className="bg-white rounded-3xl px-6 md:px-10 py-8 md:py-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+    <div style={{ position: "relative", minHeight: "100vh", padding: "40px 24px", fontFamily: "Georgia,serif", overflow: "hidden" }}>
+      <div style={{ position: "fixed", top: -100, left: -100, width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle,rgba(236,72,153,0.14),transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
+      <div style={{ position: "fixed", top: -60, right: -60, width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle,rgba(168,85,247,0.13),transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
+      <div style={{ position: "fixed", bottom: 0, left: "40%", width: 500, height: 300, borderRadius: "50%", background: "radial-gradient(circle,rgba(249,115,22,0.10),transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
+
+      <div style={{ position: "relative", zIndex: 1, maxWidth: 1200, margin: "0 auto" }}>
+
+        {/* hero */}
+        <div style={{
+          marginBottom: 44, padding: 1.5,
+          background: "linear-gradient(135deg,#ec4899,#a855f7,#f97316)",
+          borderRadius: 28,
+        }}>
+          <div style={{
+            background: "#fffaf7", borderRadius: 27,
+            padding: "38px 44px",
+            display: "flex", flexWrap: "wrap",
+            alignItems: "center", justifyContent: "space-between", gap: 32,
+          }}>
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-pink-100 via-purple-100 to-orange-100 px-4 py-2 text-sm text-slate-600">
-                <SellerStoreIcon size={16} />
+              <div style={{
+                display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 18,
+                padding: "5px 18px",
+                background: "linear-gradient(135deg,#fce7f3,#e9d5ff,#fed7aa)",
+                borderRadius: 999, fontFamily: "sans-serif",
+                fontSize: 11, letterSpacing: "0.18em", textTransform: "uppercase", color: "#7e22ce",
+              }}>
+                <SellerStoreIcon size={11} strokeWidth={2} />
                 Seller Control Panel
               </div>
-
-              <h1 className="mt-5 text-3xl md:text-5xl font-bold text-slate-800 tracking-tight">
+              <h1 style={{ margin: 0, fontSize: 34, fontWeight: 600, color: "#1c1917", lineHeight: 1.2 }}>
                 Seller Dashboard
               </h1>
-
-              <p className="mt-3 max-w-2xl text-slate-500 leading-7">
-                Track your store performance, orders, and revenue from one elegant
-                dashboard designed to help you grow faster.
+              <p style={{ margin: "12px 0 0", fontSize: 15, color: "#78716c", fontFamily: "sans-serif", maxWidth: 440, lineHeight: 1.75 }}>
+                Track your store performance, orders, and revenue from one elegant dashboard.
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 min-w-[260px]">
-              <div className="rounded-2xl bg-gradient-to-r from-pink-100 via-purple-100 to-orange-100 p-4 border border-white/50">
-                <div className="flex items-center gap-2 text-slate-500 text-sm">
-                  <SparklesIcon size={16} />
-                  Revenue
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, minWidth: 240 }}>
+              {[
+                { icon: SparklesIcon, label: "Revenue", value: `${currency}${stats.total_revenue}`, from: "#fce7f3", to: "#e9d5ff", border: "#f9a8d4", color: "#be185d" },
+                { icon: TagsIcon,     label: "Orders",  value: stats.total_orders,                   from: "#e9d5ff", to: "#fed7aa", border: "#c4b5fd", color: "#7e22ce" },
+              ].map(({ icon: Icon, label, value, from, to, border, color }) => (
+                <div key={label} style={{ background: `linear-gradient(135deg,${from},${to})`, border: `1px solid ${border}`, borderRadius: 18, padding: "16px 18px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                    <Icon size={12} color={color} strokeWidth={2} />
+                    <span style={{ fontSize: 11, color: "#78716c", fontFamily: "sans-serif", letterSpacing: "0.05em" }}>{label}</span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: 24, fontWeight: 600, color: "#1c1917" }}>{value}</p>
                 </div>
-                <p className="mt-2 text-2xl font-bold text-slate-800">
-                  {currency}{stats.total_revenue}
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-gradient-to-r from-orange-100 via-pink-100 to-purple-100 p-4 border border-white/50">
-                <div className="flex items-center gap-2 text-slate-500 text-sm">
-                  <TagsIcon size={16} />
-                  Orders
-                </div>
-                <p className="mt-2 text-2xl font-bold text-slate-800">
-                  {stats.total_orders}
-                </p>
-              </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Stat cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mt-8">
+        {/* stat cards */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginBottom: 32 }}>
           {dashboardCardsData.map((card, index) => (
             <div
               key={index}
-              className="group relative overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_10px_35px_rgba(15,23,42,0.05)] hover:shadow-[0_18px_50px_rgba(15,23,42,0.10)] transition-all duration-300"
+              style={{
+                background: `linear-gradient(135deg,${card.gradFrom},${card.gradTo})`,
+                border: `1px solid ${card.border}`,
+                borderRadius: 22, overflow: "hidden",
+                transition: "transform 0.2s, box-shadow 0.2s",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 16px 44px rgba(168,85,247,0.14)"; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
             >
-              <div className={`h-1.5 w-full bg-gradient-to-r ${card.accent}`} />
-
-              <div className="p-6 flex items-start justify-between gap-5">
-                <div>
-                  <p className="text-sm text-slate-500">{card.title}</p>
-                  <h3 className="mt-3 text-3xl font-bold text-slate-800">
-                    {card.value}
-                  </h3>
-                  <div className="mt-4 inline-flex items-center gap-1 text-xs text-slate-400">
-                    <ArrowUpRightIcon size={14} />
-                    Seller insight
+              <div style={{ height: 3, background: "linear-gradient(90deg,#ec4899,#a855f7,#f97316)" }} />
+              <div style={{ padding: "22px 24px" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                  <div>
+                    <p style={{ margin: 0, fontSize: 12, color: "#78716c", fontFamily: "sans-serif" }}>{card.title}</p>
+                    <h3 style={{ margin: "10px 0 0", fontSize: 28, fontWeight: 600, color: "#1c1917" }}>{card.value}</h3>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 12 }}>
+                      <ArrowUpRightIcon size={12} color={card.iconColor} strokeWidth={2.5} />
+                      <span style={{ fontSize: 11, color: "#a78bfa", fontFamily: "sans-serif" }}>Seller insight</span>
+                    </div>
                   </div>
-                </div>
-
-                <div className={`shrink-0 rounded-2xl p-3.5 ${card.iconBg} ${card.iconColor}`}>
-                  <card.icon size={28} />
+                  <div style={{
+                    width: 46, height: 46, borderRadius: 13, flexShrink: 0,
+                    background: "#fff", border: `1px solid ${card.border}`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <card.icon size={20} color={card.iconColor} strokeWidth={1.7} />
+                  </div>
                 </div>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Chart + Recent Orders */}
-        <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-6 mt-8">
-          <div className="rounded-[28px] border border-slate-200 bg-white p-5 md:p-6 shadow-[0_12px_40px_rgba(15,23,42,0.05)]">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-sm text-slate-400">Analytics</p>
-                <h2 className="text-xl font-semibold text-slate-800">
-                  Order Activity Overview
-                </h2>
-              </div>
+        {/* chart + orders */}
+        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 20 }}>
 
-              <div className="rounded-full bg-gradient-to-r from-pink-100 via-purple-100 to-orange-100 px-4 py-2 text-xs text-slate-600">
+          <div style={{ background: "#fffaf7", border: "1px solid #f3e8ff", borderRadius: 24, padding: "28px 28px 24px" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 22 }}>
+              <div>
+                <p style={{ margin: 0, fontSize: 11, color: "#a78bfa", fontFamily: "sans-serif", letterSpacing: "0.1em", textTransform: "uppercase" }}>Analytics</p>
+                <h2 style={{ margin: "6px 0 0", fontSize: 18, fontWeight: 600, color: "#1c1917" }}>Order Activity Overview</h2>
+              </div>
+              <div style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "5px 14px",
+                background: "linear-gradient(135deg,#fce7f3,#e9d5ff)",
+                borderRadius: 999, border: "1px solid #f9a8d4",
+                fontFamily: "sans-serif", fontSize: 11, color: "#be185d", letterSpacing: "0.08em",
+              }}>
+                <TrendingUp size={11} strokeWidth={2} />
                 Store trend
               </div>
             </div>
-
-            <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4">
-              <OrdersAreaChart
-                allOrders={recentOrders || []}
-                title="Orders / Day"
-              />
+            <div style={{ background: "linear-gradient(135deg,#fdf4ff,#fff7ed)", border: "1px solid #f3e8ff", borderRadius: 16, padding: 16 }}>
+              <OrdersAreaChart allOrders={recentOrders || []} title="Orders / Day" />
             </div>
           </div>
 
-          <div className="rounded-[28px] border border-slate-200 bg-white p-5 md:p-6 shadow-[0_12px_40px_rgba(15,23,42,0.05)]">
-            <div className="mb-4">
-              <p className="text-sm text-slate-400">Recent Activity</p>
-              <h2 className="text-xl font-semibold text-slate-800">
-                Recent Orders
-              </h2>
+          <div style={{ background: "#fffaf7", border: "1px solid #f3e8ff", borderRadius: 24, padding: "28px 24px 24px", display: "flex", flexDirection: "column" }}>
+            <div style={{ marginBottom: 20 }}>
+              <p style={{ margin: 0, fontSize: 11, color: "#a78bfa", fontFamily: "sans-serif", letterSpacing: "0.1em", textTransform: "uppercase" }}>Recent Activity</p>
+              <h2 style={{ margin: "6px 0 0", fontSize: 18, fontWeight: 600, color: "#1c1917" }}>Recent Orders</h2>
             </div>
 
             {recentOrders.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-slate-500">
-                No recent orders found.
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 20px", textAlign: "center", background: "linear-gradient(135deg,#fdf4ff,#fff7ed)", borderRadius: 16, border: "1.5px dashed #e9d5ff" }}>
+                <div style={{ width: 48, height: 48, borderRadius: 14, marginBottom: 14, background: "linear-gradient(135deg,#fce7f3,#e9d5ff,#fed7aa)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <TagsIcon size={20} color="#be185d" strokeWidth={1.6} />
+                </div>
+                <p style={{ margin: 0, fontSize: 14, color: "#3b0764", fontWeight: 600 }}>No recent orders</p>
+                <p style={{ margin: "5px 0 0", fontSize: 12, color: "#a78bfa", fontFamily: "sans-serif" }}>Orders will appear here once placed.</p>
               </div>
             ) : (
-              <div className="space-y-4 max-h-[430px] overflow-y-auto pr-1">
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 440, overflowY: "auto", paddingRight: 4 }}>
                 {recentOrders.map((order) => (
                   <div
                     key={order.order_id}
-                    className="rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white transition p-4"
+                    style={{ background: "linear-gradient(135deg,#fdf4ff,#fff7ed)", border: "1px solid #f3e8ff", borderRadius: 16, padding: "14px 16px", transition: "transform 0.15s" }}
+                    onMouseEnter={e => e.currentTarget.style.transform = "translateX(3px)"}
+                    onMouseLeave={e => e.currentTarget.style.transform = "translateX(0)"}
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-semibold text-slate-800">
-                          Order #{order.order_id}
-                        </p>
-
-                        <div className="mt-2 space-y-1.5 text-sm text-slate-500">
-                          <p>
-                            Status:{" "}
-                            <span className="font-medium text-slate-700">
-                              {order.latest_status || order.order_status || "placed"}
-                            </span>
-                          </p>
-                          <p>
-                            Customer:{" "}
-                            <span className="font-medium text-slate-700">
-                              {order.customer_full_name || order.customer_username || "N/A"}
-                            </span>
-                          </p>
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
+                          <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#1c1917" }}>Order #{order.order_id}</p>
+                          <StatusBadge status={order.latest_status || order.order_status} />
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <User size={11} color="#a855f7" strokeWidth={2} />
+                          <span style={{ fontSize: 12, color: "#78716c", fontFamily: "sans-serif" }}>
+                            {order.customer_full_name || order.customer_username || "N/A"}
+                          </span>
                         </div>
                       </div>
-
-                      <div className="shrink-0 rounded-xl bg-gradient-to-r from-pink-500 via-purple-500 to-orange-500 text-white px-3 py-2 text-sm font-semibold shadow-md">
+                      <div style={{
+                        flexShrink: 0, padding: "7px 14px",
+                        background: "linear-gradient(135deg,#ec4899,#a855f7,#f97316)",
+                        borderRadius: 10, fontFamily: "sans-serif",
+                        fontSize: 13, fontWeight: 600, color: "#fff",
+                      }}>
                         {currency} {order.total_price}
                       </div>
                     </div>

@@ -37,12 +37,12 @@ const Hero = () => {
   />
 
 
-  {/* Dark overlay */}{/*
-  <div className='absolute inset-0 bg-black/40' />
-  */}
+{/* Elegant overlay */}
+          <div className="absolute inset-0 bg-gradient-to-r from-white/40 via-white/10 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent" />
 
-  {/* Content */}
-  <div className='relative z-10 p-5 sm:p-16 flex flex-col'>
+          {/* Content */}
+          <div className='relative z-10 p-5 sm:p-16 flex flex-col justify-between min-h-[80vh]'>
 
       {/* Badge top-left */}
     
@@ -60,22 +60,19 @@ const Hero = () => {
     hover:brightness-110
     transition-all duration-300
   "
->
+>  
   {/* Badge */}
-  <span className="bg-gradient-to-r from-blue-800 via-pink-500 to-purple-800 px-4 py-1.5 rounded-full text-white text-sm sm:text-base font-[Garamond] font-semibold shadow-lg">
-    The Perfect Gift!
-  </span>
+                <span className="bg-gradient-to-r from-pink-500 via-rose-400 to-orange-400 px-4 py-1.5 rounded-full text-white text-sm sm:text-base font-[Garamond] font-semibold shadow-md">
+                  The Perfect Gift!
+                </span>
+  
 
   {/* Label */}
   <span className="uppercase tracking-wide font-[Georgia]">
-    Purchase as a Gift Card
+    
   </span>
 
-  {/* Icon */}
-  <ArrowRightSquareIcon
-    className="ml-2 text-black"
-    size={30}
-  />
+  
 </div>
 
 
@@ -183,3 +180,6 @@ const Hero = () => {
 }
 
 export default Hero
+
+
+

@@ -626,7 +626,7 @@ export default function AdminPayoutsPage() {
                 </h1>
 
                 <p className="mt-2 text-slate-500 max-w-2xl leading-7">
-                  Review pending seller amounts, create payout records, and mark completed payments from one elegant control panel.
+                  
                 </p>
               </div>
 

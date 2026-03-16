@@ -1,37 +1,69 @@
 'use client'
+
 import { ArrowRight, StarIcon, Sparkles, Store, MessageCircle } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import ReviewForm from "./ReviewForm"
 
-const FALLBACK_USER = "/placeholder-user.png";
-const FALLBACK_STORE = "/placeholder-store.png";
+const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000"
+const FALLBACK_USER = "/placeholder-user.png"
+const FALLBACK_STORE = "/placeholder-store.png"
 
 const resolveImageSrc = (img, fallback = FALLBACK_STORE) => {
-  if (!img) return fallback;
-  if (typeof img === "object" && typeof img.src === "string") return img;
-  if (typeof img === "string") return img.trim() ? img : fallback;
-  return fallback;
-};
+  if (!img) return fallback
+  if (typeof img === "object" && typeof img.src === "string") return img
+  if (typeof img === "string") return img.trim() ? img : fallback
+  return fallback
+}
 
 const ProductDescription = ({ product }) => {
-  const [selectedTab, setSelectedTab] = useState("Description");
+  const [selectedTab, setSelectedTab] = useState("Description")
+  const [ratings, setRatings] = useState([])
 
-  if (!product) return null;
+  if (!product) return null
 
-  const ratings = Array.isArray(product.rating) ? product.rating : [];
-  const store = product.store;
+  const productId = product?.id || product?.product_id
+  const store = product?.store
+
+  const loadReviews = async () => {
+    try {
+      if (!productId) return
+
+      const res = await fetch(`${API}/api/reviews/product/${productId}`)
+      const data = await res.json().catch(() => ({}))
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to load reviews")
+      }
+
+      setRatings(Array.isArray(data.reviews) ? data.reviews : [])
+    } catch (err) {
+      console.error("LOAD REVIEWS ERROR:", err)
+      setRatings([])
+    }
+  }
+
+  useEffect(() => {
+    loadReviews()
+  }, [productId])
 
   const averageRating = useMemo(() => {
-    if (!ratings.length) return 0;
-    const total = ratings.reduce((sum, item) => sum + (Number(item?.rating) || 0), 0);
-    return (total / ratings.length).toFixed(1);
-  }, [ratings]);
+    if (!ratings.length) return 0
+    const total = ratings.reduce((sum, item) => sum + (Number(item?.rating) || 0), 0)
+    return (total / ratings.length).toFixed(1)
+  }, [ratings])
+
+  const storeHref = store?.username
+    ? `/shop/${store.username}`
+    : store?.ref_no
+    ? `/shop/${store.ref_no}`
+    : store?.store_id
+    ? `/shop/${store.store_id}`
+    : null
 
   return (
     <div className="relative mt-16 mb-24 overflow-hidden rounded-[2rem] border border-white/50 bg-white/55 backdrop-blur-xl shadow-[0_20px_80px_rgba(236,72,153,0.10)]">
-
-      {/* Background glow */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-20 -left-20 h-56 w-56 rounded-full bg-pink-300/30 blur-3xl" />
         <div className="absolute top-10 right-0 h-72 w-72 rounded-full bg-purple-300/25 blur-3xl" />
@@ -39,7 +71,6 @@ const ProductDescription = ({ product }) => {
       </div>
 
       <div className="relative z-10 p-5 sm:p-7 md:p-10">
-
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -55,6 +86,14 @@ const ProductDescription = ({ product }) => {
             <p className="mt-2 max-w-2xl text-sm sm:text-base text-slate-600 leading-7">
               Explore the description, collector impressions, and the artist store behind this creation.
             </p>
+
+            <button
+              onClick={() => setSelectedTab("Reviews")}
+              className="mt-4 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-pink-500 via-purple-500 to-orange-400 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(236,72,153,0.25)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_rgba(168,85,247,0.30)]"
+            >
+              <MessageCircle size={16} />
+              Write a Review
+            </button>
           </div>
 
           {selectedTab === "Reviews" && (
@@ -74,7 +113,7 @@ const ProductDescription = ({ product }) => {
         {/* Tabs */}
         <div className="mt-8 flex flex-wrap gap-3">
           {["Description", "Reviews"].map((tab) => {
-            const active = tab === selectedTab;
+            const active = tab === selectedTab
             return (
               <button
                 key={tab}
@@ -97,7 +136,7 @@ const ProductDescription = ({ product }) => {
                   {tab}
                 </span>
               </button>
-            );
+            )
           })}
         </div>
 
@@ -106,7 +145,7 @@ const ProductDescription = ({ product }) => {
           <div className="mt-8 grid gap-6 lg:grid-cols-[1.4fr_0.8fr]">
             <div className="rounded-[1.75rem] border border-white/60 bg-gradient-to-br from-white/85 via-pink-50/70 to-purple-50/60 p-6 sm:p-8 shadow-[0_15px_40px_rgba(244,114,182,0.08)]">
               <p className="text-[15px] leading-8 text-slate-700">
-                {product.description ?? "No description available."}
+                {product.description ?? product.product_description ?? "No description available."}
               </p>
             </div>
 
@@ -119,7 +158,7 @@ const ProductDescription = ({ product }) => {
                 <div className="rounded-2xl bg-gradient-to-r from-pink-100/70 to-purple-100/70 p-4">
                   <p className="text-sm text-slate-500">Category</p>
                   <p className="mt-1 text-base font-semibold text-slate-800">
-                    {product.category || "Artwork"}
+                    {product.category || product.category_name || "Artwork"}
                   </p>
                 </div>
 
@@ -143,7 +182,9 @@ const ProductDescription = ({ product }) => {
 
         {/* Reviews */}
         {selectedTab === "Reviews" && (
-          <div className="mt-8">
+          <div className="mt-8 space-y-6">
+            <ReviewForm productId={productId} onReviewSubmitted={loadReviews} />
+
             {ratings.length === 0 ? (
               <div className="rounded-[1.75rem] border border-white/60 bg-gradient-to-br from-white/85 via-pink-50/60 to-orange-50/60 p-10 text-center shadow-[0_15px_40px_rgba(251,146,60,0.08)]">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-pink-400 via-purple-400 to-orange-400 text-white shadow-lg">
@@ -160,7 +201,7 @@ const ProductDescription = ({ product }) => {
               <div className="grid gap-6">
                 {ratings.map((item, idx) => (
                   <div
-                    key={idx}
+                    key={item.review_id || idx}
                     className="group relative overflow-hidden rounded-[1.75rem] border border-white/60 bg-white/75 p-5 sm:p-6 shadow-[0_15px_40px_rgba(168,85,247,0.08)] backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_50px_rgba(236,72,153,0.14)]"
                   >
                     <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
@@ -181,10 +222,12 @@ const ProductDescription = ({ product }) => {
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div>
                             <p className="text-lg font-semibold text-slate-800">
-                              {item?.user?.name ?? "Anonymous"}
+                              {item?.user?.name ?? item?.user?.username ?? "Anonymous"}
                             </p>
                             <p className="mt-1 text-sm text-slate-400">
-                              {item?.createdAt ? new Date(item.createdAt).toDateString() : ""}
+                              {(item?.time_added || item?.createdAt)
+                                ? new Date(item.time_added || item.createdAt).toDateString()
+                                : ""}
                             </p>
                           </div>
 
@@ -245,9 +288,9 @@ const ProductDescription = ({ product }) => {
                 </div>
               </div>
 
-              {store.username ? (
+              {storeHref ? (
                 <Link
-                  href={`/shop/${store.username}`}
+                  href={storeHref}
                   className="group inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-pink-500 via-purple-500 to-orange-400 px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(236,72,153,0.25)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_rgba(168,85,247,0.30)]"
                 >
                   View Store
@@ -259,7 +302,7 @@ const ProductDescription = ({ product }) => {
         ) : null}
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default ProductDescription;
+export default ProductDescription

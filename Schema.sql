@@ -294,3 +294,29 @@ CREATE TABLE payout_item (
   order_item_id BIGINT NOT NULL REFERENCES order_item(order_item_id) ON DELETE RESTRICT,
   PRIMARY KEY (payout_id, order_item_id)
 );
+
+
+
+
+
+
+
+
+
+ALTER TABLE order_item
+ADD COLUMN IF NOT EXISTS seller_status VARCHAR(30) NOT NULL DEFAULT 'pending';
+
+ALTER TABLE order_item
+ADD COLUMN IF NOT EXISTS seller_confirmed_at TIMESTAMPTZ;
+
+ALTER TABLE order_item
+ADD COLUMN IF NOT EXISTS seller_cancelled_at TIMESTAMPTZ;
+
+ALTER TABLE order_item
+ADD COLUMN IF NOT EXISTS cancel_reason TEXT;
+
+ALTER TABLE order_item
+ADD COLUMN IF NOT EXISTS cancelled_by VARCHAR(30);
+
+ALTER TABLE order_item
+ADD COLUMN IF NOT EXISTS delivery_status VARCHAR(30) NOT NULL DEFAULT 'not_ready';
