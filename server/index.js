@@ -25,6 +25,12 @@ import adminStoresRoutes from "./routes/admin.stores.routes.js";
 import customerRoutes from "./routes/customerRoutes.js";
 import deliveryManRoutes from "./routes/deliveryManRoutes.js";
 import contactRoutes from "./routes/contact.routes.js";
+import plusMemberRoutes from "./routes/plusMemberRoutes.js";
+import publicStoreRoutes from "./routes/publicStore.routes.js"
+
+
+
+
 
 
 
@@ -65,6 +71,8 @@ app.use("/api/upload", uploadRoutes);
 app.use("/api/customer", customerRoutes);
 app.use("/api/deliveryman", deliveryManRoutes);
 app.use("/api/contact", contactRoutes);
+app.use("/api/plus-member", plusMemberRoutes);
+app.use("/api/public/stores", publicStoreRoutes)
 
 
 
