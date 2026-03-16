@@ -3,7 +3,7 @@
 import { addToCart } from "@/lib/features/cart/cartSlice";
 import { StarIcon, TagIcon, EarthIcon, CreditCardIcon, UserIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Counter from "./Counter";
 import { useDispatch, useSelector } from "react-redux";
@@ -11,12 +11,10 @@ import { useDispatch, useSelector } from "react-redux";
 const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
 const FALLBACK_IMG = "/placeholder.png";
 
-// ✅ Make any DB "/uploads/.." usable in Next Image
 const toPublicImageUrl = (img, fallback = FALLBACK_IMG) => {
   if (!img) return fallback;
 
   if (typeof img === "object" && typeof img.src === "string") return img;
-
   if (typeof img !== "string") return fallback;
 
   const s = img.trim();
@@ -26,7 +24,7 @@ const toPublicImageUrl = (img, fallback = FALLBACK_IMG) => {
   if (s.startsWith("/uploads/")) return `${API}${s}`;
   if (s.startsWith("/")) return s;
 
-  return fallback;
+  return `${API}/uploads/${s}`;
 };
 
 const ProductDetails = ({ product }) => {
@@ -49,10 +47,9 @@ const ProductDetails = ({ product }) => {
 
   const [mainImage, setMainImage] = useState(images[0] ?? FALLBACK_IMG);
 
-  const addToCartHandler = () => {
-    if (!productId) return;
-    dispatch(addToCart({ productId }));
-  };
+  useEffect(() => {
+    setMainImage(images[0] ?? FALLBACK_IMG);
+  }, [images]);
 
   const ratingArr = Array.isArray(product?.rating) ? product.rating : [];
   const averageRating =
@@ -62,35 +59,55 @@ const ProductDetails = ({ product }) => {
 
   const mainSrc = toPublicImageUrl(mainImage, FALLBACK_IMG);
 
+  const stock = Number(product?.product_count ?? 0);
+  const isOutOfStock = stock <= 0 || product?.status === "inactive";
+
+  const addToCartHandler = () => {
+    if (!productId || isOutOfStock) return;
+    dispatch(addToCart({ productId }));
+  };
+
   return (
     <div className="flex max-lg:flex-col gap-12">
       <div className="flex max-sm:flex-col-reverse gap-3">
         <div className="flex sm:flex-col gap-3">
-          {images.map((image, index) => (
-            <div
-              key={index}
-              onClick={() => setMainImage(image)}
-              className="bg-slate-100 flex items-center justify-center size-26 rounded-lg group cursor-pointer"
-            >
-              <Image
-                src={toPublicImageUrl(image, FALLBACK_IMG)}
-                className="group-hover:scale-103 group-active:scale-95 transition"
-                alt=""
-                width={45}
-                height={45}
-              />
-            </div>
-          ))}
+          {images.map((image, index) => {
+            const thumbSrc = toPublicImageUrl(image, FALLBACK_IMG);
+            const isSelected = thumbSrc === mainSrc;
+
+            return (
+              <div
+                key={index}
+                onClick={() => setMainImage(image)}
+                className={`relative bg-slate-100 flex items-center justify-center size-26 rounded-lg group cursor-pointer overflow-hidden border ${
+                  isSelected ? "border-slate-400" : "border-transparent"
+                }`}
+              >
+                <Image
+                  src={thumbSrc}
+                  alt={`Thumbnail ${index + 1}`}
+                  fill
+                  className="object-contain p-2 group-hover:scale-105 group-active:scale-95 transition"
+                />
+              </div>
+            );
+          })}
         </div>
 
-        <div className="flex justify-center items-center bg-gray-100 rounded-lg w-full max-w-md h-96 overflow-hidden">
+        <div className="relative flex justify-center items-center bg-gray-100 rounded-lg w-full max-w-md h-96 overflow-hidden">
           <Image
             src={mainSrc}
             alt={product?.name ?? "Product"}
             width={800}
             height={1200}
-            className="object-contain w-full h-full"
+            className={`object-contain w-full h-full ${isOutOfStock ? "opacity-70" : ""}`}
           />
+
+          {isOutOfStock && (
+            <span className="absolute top-4 left-4 bg-red-600 text-white text-sm px-4 py-1.5 rounded-full">
+              Out of Stock
+            </span>
+          )}
         </div>
       </div>
 
@@ -121,19 +138,41 @@ const ProductDetails = ({ product }) => {
           </p>
         </div>
 
+        <div className="mt-4">
+          {isOutOfStock ? (
+            <p className="text-red-600 font-medium">Out of Stock</p>
+          ) : stock <= 5 ? (
+            <p className="text-orange-500 font-medium">Only {stock} left in stock</p>
+          ) : (
+            <p className="text-green-600 font-medium">In Stock</p>
+          )}
+        </div>
+
         <div className="flex items-end gap-5 mt-10">
-          {productId && cart?.[productId] && (
+          {!isOutOfStock && productId && cart?.[productId] && (
             <div className="flex flex-col gap-3">
               <p className="text-lg text-slate-800 font-semibold">Quantity</p>
-              <Counter productId={productId} />
+              <Counter productId={productId} maxQty={product.product_count} />
             </div>
           )}
 
           <button
-            onClick={() => (!cart?.[productId] ? addToCartHandler() : router.push("/cart"))}
-            className="bg-slate-800 text-white px-10 py-3 text-sm font-medium rounded hover:bg-slate-900 active:scale-95 transition"
+            onClick={() => {
+              if (isOutOfStock) return;
+              !cart?.[productId] ? addToCartHandler() : router.push("/cart");
+            }}
+            disabled={isOutOfStock}
+            className={`px-10 py-3 text-sm font-medium rounded transition ${
+              isOutOfStock
+                ? "bg-slate-300 text-white cursor-not-allowed"
+                : "bg-slate-800 text-white hover:bg-slate-900 active:scale-95"
+            }`}
           >
-            {!cart?.[productId] ? "Add to Cart" : "View Cart"}
+            {isOutOfStock
+              ? "Out of Stock"
+              : !cart?.[productId]
+              ? "Add to Cart"
+              : "View Cart"}
           </button>
         </div>
 
@@ -143,7 +182,7 @@ const ProductDetails = ({ product }) => {
           <p className="flex gap-3"><CreditCardIcon className="text-slate-400" /> 100% Secured Payment</p>
           <p className="flex gap-3"><EarthIcon className="text-slate-400" /> Free shipping for orders above 999Tk</p>
           <p className="flex gap-3"><UserIcon className="text-slate-400" /> Authentic Handmade Products</p>
-          </div>
+        </div>
       </div>
     </div>
   );
