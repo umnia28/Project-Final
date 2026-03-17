@@ -30,7 +30,6 @@ export default function DeliveryDashboard() {
     { title: "Shipped Orders", value: dashboardData.shipped_orders, icon: PackageIcon },
     { title: "Out For Delivery", value: dashboardData.out_for_delivery_orders, icon: TruckIcon },
     { title: "Delivered Orders", value: dashboardData.delivered_orders, icon: CheckCircle2Icon },
-    { title: "Unread Notifications", value: dashboardData.unread_notifications, icon: BellIcon },
   ];
 
   useEffect(() => {

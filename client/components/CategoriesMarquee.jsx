@@ -18,3 +18,4 @@ const CategoriesMarquee = () => {
 };
 
 export default CategoriesMarquee;
+

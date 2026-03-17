@@ -21,7 +21,6 @@ export default function DeliverymanSidebar() {
     { name: "Assigned Orders", href: "/deliveryman/assignedorders", icon: NotebookIcon},
     { name: "Delivered Orders", href: "/deliveryman/deliveredorders", icon: ShoppingBasketIcon },
     { name: "Salary", href: "/deliveryman/salary", icon:  DollarSign },
-    { name: "Notifications", href: "/deliveryman/notifications", icon: PercentSquare },
   ];
 
   return (

@@ -1,24 +1,214 @@
 'use client'
-import React from 'react'
-import Title from './Title'
+
+import React, { useEffect, useMemo } from 'react'
+import { Sparkles, ArrowUpRight, Leaf } from 'lucide-react'
 import ProductCard from './ProductCard'
-import { useSelector } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
+import { fetchDbProducts } from '@/lib/features/product/productSlice'
+import { Playfair_Display, Cormorant_Garamond } from 'next/font/google'
+
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  weight: ['500', '600', '700']
+})
+
+const cormorant = Cormorant_Garamond({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700']
+})
 
 const LatestProducts = () => {
+  const dispatch = useDispatch()
+  const displayQuantity = 8
 
-    const displayQuantity = 8
-    const products = useSelector(state => state.product.list)
+  const { list: products, loading } = useSelector((state) => state.product)
 
-    return (
-        <div className='px-10 my-30 max-w-7xl mx-auto font-serif'>
-            <Title title='Seasonal Inspirations' description={`Showing ${products.length < displayQuantity ? products.length : displayQuantity} of ${products.length} products`} href='/shop' />
-            <div className='mt-12 grid grid-cols-2 sm:flex flex-wrap gap-6 justify-between'>
-                {products.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, displayQuantity).map((product, index) => (
-                    <ProductCard key={index} product={product} />
-                ))}
+  useEffect(() => {
+    if (!products || products.length === 0) {
+      dispatch(fetchDbProducts())
+    }
+  }, [dispatch, products?.length])
+
+  const getProductId = (product) => product?.id || product?.product_id
+
+  const getBestSellingScore = (product) => {
+    if (typeof product?.sold === 'number') return product.sold
+    if (typeof product?.sold_count === 'number') return product.sold_count
+    if (typeof product?.total_sold === 'number') return product.total_sold
+    if (typeof product?.totalSold === 'number') return product.totalSold
+    if (typeof product?.qty_sold === 'number') return product.qty_sold
+    if (typeof product?.orders_count === 'number') return product.orders_count
+
+    if (!isNaN(Number(product?.sold))) return Number(product.sold)
+    if (!isNaN(Number(product?.sold_count))) return Number(product.sold_count)
+    if (!isNaN(Number(product?.total_sold))) return Number(product.total_sold)
+    if (!isNaN(Number(product?.totalSold))) return Number(product.totalSold)
+    if (!isNaN(Number(product?.qty_sold))) return Number(product.qty_sold)
+    if (!isNaN(Number(product?.orders_count))) return Number(product.orders_count)
+
+    if (Array.isArray(product?.rating)) return product.rating.length
+    if (typeof product?.rating_count === 'number') return product.rating_count
+    if (!isNaN(Number(product?.rating_count))) return Number(product.rating_count)
+
+    return 0
+  }
+
+  const getProductDate = (product) => {
+    const rawDate =
+      product?.createdAt ||
+      product?.created_at ||
+      product?.date_added ||
+      product?.dateAdded ||
+      product?.updatedAt ||
+      product?.updated_at
+
+    const time = new Date(rawDate).getTime()
+    return isNaN(time) ? 0 : time
+  }
+
+  const bestSellingIds = useMemo(() => {
+    if (!Array.isArray(products) || products.length === 0) return new Set()
+
+    const ids = [...products]
+      .sort((a, b) => getBestSellingScore(b) - getBestSellingScore(a))
+      .slice(0, displayQuantity)
+      .map((product) => getProductId(product))
+      .filter(Boolean)
+
+    return new Set(ids)
+  }, [products])
+
+  const latestProducts = useMemo(() => {
+    if (!Array.isArray(products) || products.length === 0) return []
+
+    return [...products]
+      .filter((product) => !bestSellingIds.has(getProductId(product)))
+      .sort((a, b) => getProductDate(b) - getProductDate(a))
+      .slice(0, displayQuantity)
+  }, [products, bestSellingIds])
+
+  return (
+    <section className="relative overflow-hidden px-6 md:px-10 my-28 max-w-7xl mx-auto">
+      {/* Artistic background glows */}
+      <div className="absolute -top-20 left-0 h-56 w-56 rounded-full bg-pink-300/20 blur-3xl -z-10" />
+      <div className="absolute top-24 right-0 h-72 w-72 rounded-full bg-purple-300/20 blur-3xl -z-10" />
+      <div className="absolute bottom-0 left-1/3 h-64 w-64 rounded-full bg-orange-300/20 blur-3xl -z-10" />
+
+      <div className="rounded-[2rem] border border-white/60 bg-white/65 backdrop-blur-xl shadow-[0_20px_70px_rgba(236,72,153,0.08)] p-6 md:p-10">
+        {/* CENTERED HEADER */}
+        <div className="flex flex-col items-center text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/60 px-4 py-1.5 shadow-sm backdrop-blur-md">
+            <Sparkles className="h-3.5 w-3.5 text-pink-500" />
+            <span className="text-[11px] font-semibold uppercase tracking-[0.35em] text-slate-600">
+              New Arrivals
+            </span>
+          </div>
+
+          <div className="mt-6">
+            <p className={`${cormorant.className} text-sm md:text-base tracking-[0.45em] uppercase text-slate-500`}>
+              Freshly Curated
+            </p>
+
+            <h2 className={`${playfair.className} mt-2 text-4xl sm:text-5xl md:text-6xl leading-none font-semibold bg-gradient-to-r from-pink-500 via-purple-500 to-orange-400 bg-clip-text text-transparent`}>
+              Seasonal Inspirations
+            </h2>
+
+            <div className="mt-4 flex items-center justify-center gap-3">
+              <div className="h-px w-10 bg-gradient-to-r from-transparent to-pink-300" />
+              <div className="h-2 w-2 rounded-full bg-gradient-to-r from-pink-400 via-purple-400 to-orange-400" />
+              <div className="h-px w-10 bg-gradient-to-l from-transparent to-orange-300" />
             </div>
+          </div>
+
+          <p className="mt-6 max-w-2xl text-sm md:text-base leading-7 text-slate-600">
+            Explore the newest additions to our collection — elegant creations,
+            seasonal favorites, and fresh inspirations chosen to bring warmth,
+            beauty, and artistic charm into every moment.
+          </p>
+
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
+            <div className="rounded-2xl border border-white/60 bg-white/70 px-5 py-4 shadow-sm backdrop-blur-md">
+              <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400">
+                Latest Picks
+              </p>
+              <p className="mt-1 text-2xl font-semibold text-slate-800">
+                {latestProducts.length}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/60 bg-gradient-to-r from-pink-50/90 via-white/80 to-orange-50/90 px-5 py-4 shadow-sm backdrop-blur-md">
+              <div className="flex items-center justify-center gap-2">
+                <Leaf className="h-5 w-5 text-emerald-500" />
+                <p className="text-sm font-semibold text-slate-700">
+                  Fresh Finds
+                </p>
+              </div>
+              <p className="mt-1 text-xs tracking-wide text-slate-500">
+                Latest pieces beyond the bestsellers
+              </p>
+            </div>
+          </div>
         </div>
-    )
+
+        {/* Divider */}
+        <div className="my-10 h-px w-full bg-gradient-to-r from-transparent via-pink-200 to-transparent" />
+
+        {/* PRODUCTS */}
+        {loading ? (
+          <div className="rounded-[1.75rem] border border-white/60 bg-white/70 p-10 text-center shadow-sm">
+            <div className="mx-auto mb-4 h-12 w-12 animate-pulse rounded-full bg-gradient-to-r from-pink-400 via-purple-400 to-orange-400 opacity-80" />
+            <p className="text-slate-600 text-lg font-medium">Loading products...</p>
+            <p className="mt-2 text-sm text-slate-500">
+              Gathering the newest artistic arrivals for you.
+            </p>
+          </div>
+        ) : latestProducts.length > 0 ? (
+          <>
+            <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
+              {latestProducts.map((product, index) => (
+                <div key={getProductId(product) || index} className="group relative">
+                  {index < 4 && (
+                    <div className="absolute -top-3 left-3 z-20 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-pink-500 via-purple-500 to-orange-400 px-3 py-1 text-xs font-semibold text-white shadow-lg">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      New
+                    </div>
+                  )}
+
+                  <div className="transition-all duration-300 group-hover:-translate-y-1">
+                    <ProductCard product={product} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-12 flex justify-center">
+              <a
+                href="/shop"
+                className="group inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-orange-300 via-purple-300 to-pink-300 px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_35px_rgba(236,72,153,0.22)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(168,85,247,0.28)]"
+              >
+                Discover More
+                <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+              </a>
+            </div>
+          </>
+        ) : (
+          <div className="rounded-[1.75rem] border border-white/60 bg-gradient-to-br from-white/80 via-pink-50/60 to-orange-50/60 p-12 text-center shadow-sm">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-pink-400 via-purple-400 to-orange-400 text-white shadow-lg">
+              <Sparkles className="h-6 w-6" />
+            </div>
+
+            <h3 className="mt-5 bg-gradient-to-r from-orange-300 via-purple-500 to-orange-400 bg-clip-text text-2xl font-semibold text-transparent">
+              No products found
+            </h3>
+
+            <p className="mt-3 text-slate-500">
+              New inspirations will appear here as soon as they arrive.
+            </p>
+          </div>
+        )}
+      </div>
+    </section>
+  )
 }
 
 export default LatestProducts

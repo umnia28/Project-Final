@@ -27,6 +27,15 @@ import promoRoutes from "./routes/promo.routes.js"
 import customerRoutes from "./routes/customerRoutes.js";
 import deliveryManRoutes from "./routes/deliveryManRoutes.js";
 import contactRoutes from "./routes/contact.routes.js";
+import plusMemberRoutes from "./routes/plusMemberRoutes.js";
+import publicStoreRoutes from "./routes/publicStore.routes.js"
+import newsletterRoutes from "./routes/newsletter.routes.js";
+import reviewRoutes from "./routes/review.routes.js";
+import productQaRoutes from "./routes/product.qa.routes.js";
+
+
+
+
 
 
 dotenv.config();
@@ -68,6 +77,12 @@ app.use("/api/promos", promoRoutes);
 app.use("/api/customer", customerRoutes);
 app.use("/api/deliveryman", deliveryManRoutes);
 app.use("/api/contact", contactRoutes);
+app.use("/api/plus-member", plusMemberRoutes);
+app.use("/api/public/stores", publicStoreRoutes);
+app.use("/api/newsletter", newsletterRoutes);
+app.use("/api/reviews", reviewRoutes);
+app.use("/api/product-qa", productQaRoutes);
+
 
 
 

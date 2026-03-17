@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Mail, Phone, MapPin, Sparkles } from "lucide-react";
 
 export default function ContactPage() {
   const [form, setForm] = useState({
@@ -32,6 +33,7 @@ export default function ContactPage() {
       }
 
       alert("Message sent successfully!");
+
       setForm({
         name: "",
         email: "",
@@ -45,63 +47,138 @@ export default function ContactPage() {
   };
 
   return (
-    <div className="text-white max-w-4xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">Contact Us</h1>
+    <div className="relative px-6 py-12 overflow-hidden">
+      {/* Background glow */}
+      <div className="absolute inset-0 -z-20 bg-gradient-to-br from-pink-50 via-white to-orange-50" />
+      <div className="absolute -top-24 -left-24 -z-10 h-80 w-80 rounded-full bg-pink-200/30 blur-3xl" />
+      <div className="absolute top-32 right-0 -z-10 h-96 w-96 rounded-full bg-purple-200/25 blur-3xl" />
+      <div className="absolute bottom-0 left-1/3 -z-10 h-80 w-80 rounded-full bg-orange-200/25 blur-3xl" />
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="text-zinc-400 text-sm">Your Name</label>
-            <input
-              type="text"
-              required
-              value={form.name}
-              onChange={(e) =>
-                setForm({ ...form, name: e.target.value })
-              }
-              className="w-full mt-1 p-3 bg-zinc-800 border border-zinc-700 rounded-lg outline-none"
-            />
+      <div className="max-w-5xl mx-auto">
+
+        {/* Header */}
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center gap-2 rounded-full border border-pink-200/70 bg-gradient-to-r from-pink-100/80 via-purple-100/80 to-orange-100/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-slate-700 shadow-sm">
+            <Sparkles className="h-3.5 w-3.5 text-pink-500" />
+            Get In Touch
           </div>
 
-          <div>
-            <label className="text-zinc-400 text-sm">Email</label>
-            <input
-              type="email"
-              required
-              value={form.email}
-              onChange={(e) =>
-                setForm({ ...form, email: e.target.value })
-              }
-              className="w-full mt-1 p-3 bg-zinc-800 border border-zinc-700 rounded-lg outline-none"
-            />
+          <h1 className="mt-5 text-4xl sm:text-5xl font-semibold bg-gradient-to-r from-pink-500 via-purple-500 to-orange-400 bg-clip-text text-transparent">
+            Contact Charis Atelier
+          </h1>
+
+          <p className="mt-4 text-slate-600 max-w-2xl mx-auto">
+            Have a question, suggestion, or partnership idea? We'd love to hear
+            from you.
+          </p>
+        </div>
+
+        {/* Main card */}
+        <div className="rounded-[2rem] border border-white/60 bg-white/70 p-8 shadow-[0_20px_70px_rgba(236,72,153,0.08)] backdrop-blur-xl">
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-5">
+
+            <div>
+              <label className="text-slate-500 text-sm font-medium">
+                Your Name
+              </label>
+              <input
+                type="text"
+                required
+                value={form.name}
+                onChange={(e) =>
+                  setForm({ ...form, name: e.target.value })
+                }
+                className="w-full mt-2 px-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-pink-300 transition"
+              />
+            </div>
+
+            <div>
+              <label className="text-slate-500 text-sm font-medium">
+                Email Address
+              </label>
+              <input
+                type="email"
+                required
+                value={form.email}
+                onChange={(e) =>
+                  setForm({ ...form, email: e.target.value })
+                }
+                className="w-full mt-2 px-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-purple-300 transition"
+              />
+            </div>
+
+            <div>
+              <label className="text-slate-500 text-sm font-medium">
+                Message
+              </label>
+              <textarea
+                required
+                rows="5"
+                value={form.message}
+                onChange={(e) =>
+                  setForm({ ...form, message: e.target.value })
+                }
+                className="w-full mt-2 px-4 py-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-orange-300 transition"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="
+                w-full sm:w-auto
+                bg-gradient-to-r from-pink-500 via-purple-500 to-orange-400
+                text-white
+                px-8 py-3
+                rounded-full
+                font-semibold
+                shadow-[0_12px_30px_rgba(236,72,153,0.20)]
+                hover:scale-105
+                active:scale-95
+                transition-all
+                disabled:opacity-60
+              "
+            >
+              {loading ? "Sending..." : "Send Message"}
+            </button>
+          </form>
+
+          {/* Contact Info */}
+          <div className="mt-10 pt-8 border-t border-slate-200 grid md:grid-cols-3 gap-6">
+
+            <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-br from-pink-50 to-white border border-white/60 shadow-sm">
+              <Mail className="text-pink-500" size={20} />
+              <div>
+                <p className="text-sm text-slate-500">Email</p>
+                <p className="text-slate-700 font-medium">
+                  support@charisatelier.com
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-br from-purple-50 to-white border border-white/60 shadow-sm">
+              <Phone className="text-purple-500" size={20} />
+              <div>
+                <p className="text-sm text-slate-500">Phone</p>
+                <p className="text-slate-700 font-medium">
+                  +880 1700 000000
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-br from-orange-50 to-white border border-white/60 shadow-sm">
+              <MapPin className="text-orange-500" size={20} />
+              <div>
+                <p className="text-sm text-slate-500">Address</p>
+                <p className="text-slate-700 font-medium">
+                  Dhaka, Bangladesh
+                </p>
+              </div>
+            </div>
+
           </div>
-
-          <div>
-            <label className="text-zinc-400 text-sm">Message</label>
-            <textarea
-              required
-              rows="5"
-              value={form.message}
-              onChange={(e) =>
-                setForm({ ...form, message: e.target.value })
-              }
-              className="w-full mt-1 p-3 bg-zinc-800 border border-zinc-700 rounded-lg outline-none"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-lg disabled:opacity-60"
-          >
-            {loading ? "Sending..." : "Send Message"}
-          </button>
-        </form>
-
-        <div className="mt-8 border-t border-zinc-800 pt-6 text-zinc-400 space-y-1">
-          <p>Email: support@charisatelier.com</p>
-          <p>Phone: +880 1700 000000</p>
-          <p>Address: Dhaka, Bangladesh</p>
         </div>
       </div>
     </div>

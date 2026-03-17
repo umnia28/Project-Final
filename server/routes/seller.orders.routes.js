@@ -19,14 +19,16 @@ async function getSellerOwnedOrderItem(client, orderItemId, sellerId) {
       oi.qty,
       oi.price,
       oi.discount_amount,
-      oi.seller_status,
+      COALESCE(oi.seller_status, 'pending') AS seller_status,
       oi.seller_confirmed_at,
       oi.seller_cancelled_at,
+      oi.cancelled_by,
       oi.cancel_reason,
+      COALESCE(oi.delivery_status, 'not_ready') AS delivery_status,
 
       p.product_name,
       p.store_id,
-      p.product_count, -- change this if your stock column name is different
+      p.product_count,
 
       st.user_id AS seller_user_id,
 
@@ -51,9 +53,7 @@ async function getSellerOwnedOrderItem(client, orderItemId, sellerId) {
 }
 
 /**
- * Optional helper:
  * After seller actions, update overall order_status if all items are confirmed/cancelled.
- * This keeps your current checkout/order tracking structure usable.
  */
 async function syncOrderLevelStatus(client, orderId) {
   const { rows } = await client.query(
@@ -120,11 +120,12 @@ router.get("/", verifyToken, requireRole("seller"), async (req, res) => {
         oi.qty,
         oi.price,
         oi.discount_amount,
-        oi.seller_status,
+        COALESCE(oi.seller_status, 'pending') AS seller_status,
         oi.seller_confirmed_at,
         oi.seller_cancelled_at,
+        oi.cancelled_by,
         oi.cancel_reason,
-        oi.delivery_status,
+        COALESCE(oi.delivery_status, 'not_ready') AS delivery_status,
 
         u.user_id AS customer_id,
         u.username AS customer_username,
@@ -143,17 +144,16 @@ router.get("/", verifyToken, requireRole("seller"), async (req, res) => {
       JOIN store st ON st.store_id = p.store_id
       JOIN "order" o ON o.order_id = oi.order_id
       JOIN users u ON u.user_id = o.customer_id
-
       WHERE st.user_id = $1
       ORDER BY o.date_added DESC, oi.order_item_id DESC
       `,
       [sellerId]
     );
 
-    res.json({ items: rows });
+    return res.json({ items: rows });
   } catch (err) {
     console.error("SELLER ORDERS ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error while loading seller orders" });
   }
 });
 
@@ -172,7 +172,7 @@ router.patch(
       const sellerId = req.user.user_id;
       const orderItemId = Number(req.params.orderItemId);
 
-      if (!orderItemId) {
+      if (Number.isNaN(orderItemId) || orderItemId <= 0) {
         return res.status(400).json({ message: "Invalid order item id" });
       }
 
@@ -200,6 +200,9 @@ router.patch(
         UPDATE order_item
         SET seller_status = 'confirmed',
             seller_confirmed_at = NOW(),
+            seller_cancelled_at = NULL,
+            cancelled_by = NULL,
+            cancel_reason = NULL,
             delivery_status = 'shipment_ready'
         WHERE order_item_id = $1
         `,
@@ -210,7 +213,7 @@ router.patch(
 
       await client.query("COMMIT");
 
-      res.json({
+      return res.json({
         success: true,
         message: "Order item confirmed successfully",
         order_item_id: orderItemId,
@@ -219,7 +222,7 @@ router.patch(
     } catch (err) {
       await client.query("ROLLBACK");
       console.error("SELLER CONFIRM ERROR:", err);
-      res.status(500).json({ message: "Server error" });
+      return res.status(500).json({ message: "Server error while confirming order item" });
     } finally {
       client.release();
     }
@@ -240,9 +243,9 @@ router.patch(
     try {
       const sellerId = req.user.user_id;
       const orderItemId = Number(req.params.orderItemId);
-      const { reason } = req.body;
+      const reason = (req.body?.reason || "Cancelled by seller").trim();
 
-      if (!orderItemId) {
+      if (Number.isNaN(orderItemId) || orderItemId <= 0) {
         return res.status(400).json({ message: "Invalid order item id" });
       }
 
@@ -260,12 +263,6 @@ router.patch(
         return res.status(400).json({ message: "Item already cancelled" });
       }
 
-      /**
-       * If it was already confirmed earlier and stock had been reduced during checkout,
-       * we must put stock back.
-       *
-       * This also works if stock was reduced at checkout immediately.
-       */
       await client.query(
         `
         UPDATE product
@@ -292,7 +289,7 @@ router.patch(
 
       await client.query("COMMIT");
 
-      res.json({
+      return res.json({
         success: true,
         message: "Order item cancelled and stock restored",
         order_item_id: orderItemId,
@@ -301,7 +298,7 @@ router.patch(
     } catch (err) {
       await client.query("ROLLBACK");
       console.error("SELLER CANCEL ERROR:", err);
-      res.status(500).json({ message: "Server error" });
+      return res.status(500).json({ message: "Server error while cancelling order item" });
     } finally {
       client.release();
     }

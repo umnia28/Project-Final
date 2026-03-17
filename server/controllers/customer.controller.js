@@ -252,15 +252,38 @@ export const getCustomerProfile = async (req, res) => {
 };
 
 export const updateCustomerProfile = async (req, res) => {
+  const client = await pool.connect();
+
   try {
     const userId = req.user.user_id;
-    const { username, email, contact_no, profile_img, full_name, gender } = req.body;
+    const { username, email, contact_no, full_name, gender } = req.body;
 
     if (!username || !email) {
       return res.status(400).json({ message: "Username and email are required" });
     }
 
-    const duplicateCheck = await pool.query(
+    const allowedGenders = ["male", "female", "other", ""];
+    if (!allowedGenders.includes(gender || "")) {
+      return res.status(400).json({ message: "Invalid gender value" });
+    }
+
+    await client.query("BEGIN");
+
+    const existingUserRes = await client.query(
+      `
+      SELECT profile_img
+      FROM users
+      WHERE user_id = $1
+      `,
+      [userId]
+    );
+
+    if (existingUserRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const duplicateCheck = await client.query(
       `
       SELECT user_id
       FROM users
@@ -271,12 +294,19 @@ export const updateCustomerProfile = async (req, res) => {
     );
 
     if (duplicateCheck.rows.length > 0) {
+      await client.query("ROLLBACK");
       return res.status(409).json({
         message: "Username or email already exists",
       });
     }
 
-    const result = await pool.query(
+    let finalProfileImg = existingUserRes.rows[0].profile_img || null;
+
+    if (req.file) {
+      finalProfileImg = `${req.protocol}://${req.get("host")}/uploads/profiles/${req.file.filename}`;
+    }
+
+    const result = await client.query(
       `
       UPDATE users
       SET
@@ -302,26 +332,82 @@ export const updateCustomerProfile = async (req, res) => {
         username,
         email,
         contact_no || null,
-        profile_img || null,
+        finalProfileImg,
         full_name || null,
         gender || null,
         userId,
       ]
     );
 
+    if (req.file) {
+      await client.query(
+        `
+        INSERT INTO user_image (user_id, image_url)
+        VALUES ($1, $2)
+        `,
+        [userId, finalProfileImg]
+      );
+    }
+
+    await client.query("COMMIT");
+
     return res.json({
       message: "Profile updated successfully",
       user: result.rows[0],
     });
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error("UPDATE CUSTOMER PROFILE ERROR:", err);
+    return res.status(500).json({ message: "Server error" });
+  } finally {
+    client.release();
+  }
+};
+/* =========================
+   WISHLIST
+========================= */
+export const addWishlistItem = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+    const { productId } = req.params;
+
+    // optional: check if product exists and is visible
+    const productCheck = await pool.query(
+      `
+      SELECT product_id
+      FROM product
+      WHERE product_id = $1
+      `,
+      [productId]
+    );
+
+    if (productCheck.rows.length === 0) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    const result = await pool.query(
+      `
+      INSERT INTO wishlist (user_id, product_id)
+      VALUES ($1, $2)
+      ON CONFLICT (user_id, product_id) DO NOTHING
+      RETURNING *
+      `,
+      [userId, productId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json({ message: "Product already in wishlist" });
+    }
+
+    return res.status(201).json({
+      message: "Added to wishlist successfully",
+    });
+  } catch (err) {
+    console.error("ADD CUSTOMER WISHLIST ITEM ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
 
-/* =========================
-   WISHLIST
-========================= */
 export const getCustomerWishlist = async (req, res) => {
   try {
     const userId = req.user.user_id;

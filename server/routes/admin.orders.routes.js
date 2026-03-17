@@ -1,4 +1,3 @@
-
 import express from "express";
 import pool from "../db.js";
 import { verifyToken } from "../middleware/verifyToken.js";
@@ -183,7 +182,6 @@ router.patch(
 
       await client.query("BEGIN");
 
-      // 🔹 Lock order
       const orderRes = await client.query(
         `
         SELECT o.order_id, o.delivery_man_id
@@ -201,7 +199,6 @@ router.patch(
 
       const previousDeliveryManId = orderRes.rows[0].delivery_man_id;
 
-      // 🔹 Check current order status
       const latestStatusRes = await client.query(
         `
         SELECT status_type
@@ -223,9 +220,6 @@ router.patch(
         });
       }
 
-      // =========================
-      // 🔥 NEW LOGIC (IMPORTANT)
-      // =========================
       const itemStatsRes = await client.query(
         `
         SELECT
@@ -265,7 +259,6 @@ router.patch(
         });
       }
 
-      // 🔹 Validate delivery man
       const deliveryManRes = await client.query(
         `
         SELECT d.user_id, u.username, u.full_name, u.status
@@ -288,7 +281,6 @@ router.patch(
         });
       }
 
-      // 🔹 Prevent duplicate assignment
       if (
         previousDeliveryManId &&
         String(previousDeliveryManId) === String(delivery_man_id)
@@ -301,7 +293,6 @@ router.patch(
         });
       }
 
-      // 🔹 Assign delivery man
       await client.query(
         `
         UPDATE "order"
@@ -325,7 +316,6 @@ router.patch(
         [orderId, statusToInsert, adminUserId]
       );
 
-      // 🔹 Notify new delivery man
       await client.query(
         `
         INSERT INTO notification (user_id, notification_description)
@@ -337,7 +327,6 @@ router.patch(
         ]
       );
 
-      // 🔹 Notify previous delivery man if reassigned
       if (
         previousDeliveryManId &&
         String(previousDeliveryManId) !== String(delivery_man_id)
@@ -575,7 +564,6 @@ router.patch(
   }
 );
 
-
 /**
  * POST /api/admin/orders/:orderId/cancel
  * body: { reason? }
@@ -717,8 +705,6 @@ router.post("/:orderId/refund", verifyToken, requireRole("admin"), async (req, r
     const pendingItems = Number(stats.pending_items || 0);
     const cancelledItems = Number(stats.cancelled_items || 0);
 
-    // Refund the net amount of cancelled items:
-    // (price * qty) - item discount
     let cancelledItemsRefund = 0;
 
     for (const item of cancelledItemsRes.rows) {
@@ -733,8 +719,6 @@ router.post("/:orderId/refund", verifyToken, requireRole("admin"), async (req, r
 
     let refundAmount = cancelledItemsRefund;
 
-    // If the whole order is effectively cancelled,
-    // refund whatever remains up to full order total.
     const wholeOrderCancelled =
       totalItems > 0 &&
       confirmedItems === 0 &&
@@ -753,7 +737,6 @@ router.post("/:orderId/refund", verifyToken, requireRole("admin"), async (req, r
       });
     }
 
-    // Mark cancelled items as refunded using their own net amounts
     for (const item of cancelledItemsRes.rows) {
       const lineTotal = Number(item.price) * Number(item.qty);
       const lineDiscount = Number(item.discount_amount || 0);
