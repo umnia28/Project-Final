@@ -28,8 +28,6 @@ const Navbar = () => {
       if (payload.exp < now) {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
-        localStorage.removeItem("name");
-        localStorage.removeItem("role");
         setUser(null);
         router.push("/auth");
         return;
@@ -39,8 +37,6 @@ const Navbar = () => {
     } catch {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
-      localStorage.removeItem("name");
-      localStorage.removeItem("role");
       setUser(null);
     }
   }, [router]);
@@ -53,8 +49,6 @@ const Navbar = () => {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    localStorage.removeItem("name");
-    localStorage.removeItem("role");
     setUser(null);
     router.push("/");
     router.refresh();
@@ -63,22 +57,25 @@ const Navbar = () => {
   return (
     <nav className="bg-white border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        {/* Logo */}
         <Link href="/" className="text-3xl font-semibold text-slate-700">
           <span className="font-serif text-orange-600 text-4xl">Charis</span>
           <span className="font-serif text-pink-700 text-2xl">Atelier</span>
         </Link>
 
+        {/* Center Links */}
         <div className="hidden md:flex gap-6 text-slate-700 items-center">
           <Link href="/">Home</Link>
           <Link href="/shop">Shop</Link>
           <Link href="/about">About</Link>
           <Link href="/contact">Contact</Link>
 
-          {user?.role === "customer" && (
+          {user && user.role === "customer" && (
             <Link href="/orders">My Orders</Link>
           )}
         </div>
 
+        {/* Search */}
         <form
           onSubmit={handleSearch}
           className="hidden lg:flex items-center gap-2 bg-slate-100 px-4 py-2 rounded-full"
@@ -92,7 +89,9 @@ const Navbar = () => {
           />
         </form>
 
+        {/* Right Area */}
         <div className="flex items-center gap-4">
+          {/* Cart */}
           <Link href="/cart" className="relative text-slate-700">
             <ShoppingCartIcon size={24} />
             {cartCount > 0 && (
@@ -102,6 +101,7 @@ const Navbar = () => {
             )}
           </Link>
 
+          {/* Auth / User */}
           {user ? (
             <div className="flex items-center gap-3">
               <span className="text-sm text-slate-700">
@@ -109,7 +109,7 @@ const Navbar = () => {
               </span>
 
               {user.role === "admin" && (
-                <Link href="/admin/dashboard" className="text-xs text-blue-600">
+                <Link href="/admin" className="text-xs text-blue-600">
                   Admin
                 </Link>
               )}
@@ -117,24 +117,6 @@ const Navbar = () => {
               {user.role === "seller" && (
                 <Link href="/seller" className="text-xs text-green-600">
                   Seller
-                </Link>
-              )}
-
-              {user.role === "delivery_man" && (
-                <Link
-                  href="/deliveryman/dashboard"
-                  className="text-xs text-pink-600"
-                >
-                  Delivery Man
-                </Link>
-              )}
-
-              {user.role === "customer" && (
-                <Link
-                  href="/customer/dashboard"
-                  className="text-xs text-purple-600"
-                >
-                  Customer
                 </Link>
               )}
 

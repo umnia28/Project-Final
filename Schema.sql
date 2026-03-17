@@ -294,3 +294,47 @@ CREATE TABLE payout_item (
   order_item_id BIGINT NOT NULL REFERENCES order_item(order_item_id) ON DELETE RESTRICT,
   PRIMARY KEY (payout_id, order_item_id)
 );
+
+
+
+------  changes made so far:
+
+ALTER TABLE "order"   --- order table change 
+ADD COLUMN refunded_amount NUMERIC(12,2) NOT NULL DEFAULT 0;
+
+ALTER TABLE order_item
+ADD COLUMN seller_status VARCHAR(30) NOT NULL DEFAULT 'pending',
+ADD COLUMN seller_confirmed_at TIMESTAMP NULL,
+ADD COLUMN seller_cancelled_at TIMESTAMP NULL,
+ADD COLUMN cancel_reason TEXT NULL;
+ADD COLUMN delivery_status VARCHAR(30) NOT NULL DEFAULT 'not_ready';
+ADD COLUMN cancelled_by VARCHAR(20) NULL,
+ADD COLUMN customer_cancelled_at TIMESTAMP NULL;
+ADD COLUMN refund_status VARCHAR(30) NOT NULL DEFAULT 'not_refunded',
+ADD COLUMN refunded_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+ADD COLUMN refunded_at TIMESTAMP NULL;
+
+
+---- function + trigger : 
+
+						 ---- trigger and function for stock managing
+CREATE OR REPLACE FUNCTION sync_product_status_from_stock()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.product_count <= 0 THEN
+        NEW.status := 'inactive';
+    ELSE
+        NEW.status := 'active';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_sync_product_status_from_stock ON product;
+
+CREATE TRIGGER trg_sync_product_status_from_stock
+BEFORE INSERT OR UPDATE OF product_count
+ON product
+FOR EACH ROW
+EXECUTE FUNCTION sync_product_status_from_stock();

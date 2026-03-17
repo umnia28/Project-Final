@@ -11,49 +11,45 @@ const toPublicImageUrl = (img, fallback = FALLBACK_IMG) => {
   if (!img) return fallback;
 
   if (typeof img === "object" && typeof img.src === "string") return img;
+
   if (typeof img !== "string") return fallback;
 
   const s = img.trim();
   if (!s) return fallback;
 
   if (s.startsWith("http://") || s.startsWith("https://")) return s;
+
   if (s.startsWith("/uploads/")) return `${API}${s}`;
+
   if (s.startsWith("/")) return s;
 
   return `${API}/uploads/${s}`;
 };
 
 const ProductCard = ({ product }) => {
-  const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || '৳';
+  const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || '৳'
 
-  const ratingsArr = Array.isArray(product?.rating) ? product.rating : [];
+  const ratingsArr = Array.isArray(product?.rating) ? product.rating : []
   const avg =
     ratingsArr.length > 0
       ? ratingsArr.reduce((acc, curr) => acc + Number(curr?.rating || 0), 0) / ratingsArr.length
-      : 0;
-  const rating = Math.round(avg);
+      : 0
+  const rating = Math.round(avg)
 
-  const firstImg =
-    Array.isArray(product?.images) && product.images.length > 0
-      ? product.images[0]
-      : null;
+  const firstImg = Array.isArray(product?.images) && product.images.length > 0
+    ? product.images[0]
+    : null;
 
   const imgSrc = toPublicImageUrl(firstImg);
 
-  const hasStockField = product?.product_count !== undefined && product?.product_count !== null;
-  const stock = hasStockField ? Number(product.product_count) : null;
-  const status = String(product?.status || "").toLowerCase();
-
-  const isOutOfStock =
-    status === "inactive" || (hasStockField && !Number.isNaN(stock) && stock <= 0);
+  const stock = Number(product?.product_count ?? 0);
+  const isOutOfStock = stock <= 0 || product?.status === "inactive";
 
   return (
     <Link href={`/product/${product.id}`} className='group max-xl:mx-auto'>
-      <div
-        className={`relative bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden w-60 h-60 group ${
-          isOutOfStock ? "opacity-70" : ""
-        }`}
-      >
+      <div className={`relative bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden w-60 h-60 group ${
+        isOutOfStock ? "opacity-70" : ""
+      }`}>
         <Image
           src={imgSrc}
           alt={product?.name || "Product"}
@@ -85,18 +81,14 @@ const ProductCard = ({ product }) => {
           </div>
 
           <p className={`text-xs mt-1 ${isOutOfStock ? "text-red-500" : "text-green-600"}`}>
-            {isOutOfStock
-              ? "Unavailable"
-              : hasStockField && !Number.isNaN(stock)
-              ? `In Stock: ${stock}`
-              : "Available"}
+            {isOutOfStock ? "Unavailable" : `In Stock: ${stock}`}
           </p>
         </div>
 
         <p>{currency}{product?.price}</p>
       </div>
     </Link>
-  );
-};
+  )
+}
 
-export default ProductCard;
+export default ProductCard
