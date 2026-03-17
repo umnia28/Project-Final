@@ -1,4 +1,7 @@
 import express from "express";
+import multer from "multer";
+import path from "path";
+
 import { verifyToken } from "../middleware/verifyToken.js";
 import { requireRole } from "../middleware/requireRole.js";
 import { applySeller } from "../controllers/seller.controller.js";
@@ -8,7 +11,6 @@ import {
   getSellerProfile,
   updateSellerProfile,
 } from "../controllers/seller.profile.controller.js";
-
 
 import {
   getSellerNotifications,
@@ -24,6 +26,36 @@ const router = express.Router();
 
 /*
 --------------------------------
+MULTER SETUP FOR PROFILE IMAGE
+--------------------------------
+*/
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/");
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `seller-${req.user.user_id}-${Date.now()}${ext}`);
+  },
+});
+
+const fileFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith("image/")) {
+    cb(null, true);
+  } else {
+    cb(new Error("Only image files are allowed"), false);
+  }
+};
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
+/*
+--------------------------------
 SELLER APPLICATION
 --------------------------------
 */
@@ -32,11 +64,7 @@ SELLER APPLICATION
  * POST /api/seller/become-seller
  * Customer applies to become seller
  */
-router.post(
-  "/become-seller",
-  verifyToken,
-  applySeller
-);
+router.post("/become-seller", verifyToken, applySeller);
 
 /*
 --------------------------------
@@ -77,6 +105,7 @@ router.put(
   "/profile",
   verifyToken,
   requireRole("seller"),
+  upload.single("profile_img"),
   updateSellerProfile
 );
 

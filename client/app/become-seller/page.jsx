@@ -47,7 +47,7 @@ export default function BecomeSellerPage() {
   );
 }
   */
- 'use client';
+'use client';
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { Palette, Store, Sparkles, Brush, ArrowRight } from "lucide-react";
@@ -57,8 +57,7 @@ const API = "http://localhost:5000";
 export default function BecomeSellerPage() {
   const [businessName, setBusinessName] = useState("");
 
-  const apply = async (e) => {
-    e.preventDefault();
+  const apply = async () => {
     const token = localStorage.getItem("token");
     if (!token) throw new Error("Please login first");
 
@@ -72,15 +71,29 @@ export default function BecomeSellerPage() {
     });
 
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Apply failed");
 
-    toast.success("Application submitted ✅");
+    if (!res.ok) {
+      throw new Error(data.message || "Apply failed");
+    }
+
+    return data;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    await toast.promise(apply(), {
+      loading: "Submitting...",
+      success: "Application submitted ✅",
+      error: (err) => err.message || "Apply failed",
+    });
+
+    setBusinessName("");
   };
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(251,191,36,0.16),_transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(168,85,247,0.14),_transparent_30%),linear-gradient(to_bottom,_#faf7f2,_#f8fafc)] px-4 py-10">
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
-        {/* Left artistic section */}
         <div className="relative overflow-hidden rounded-[28px] border border-orange-200/60 bg-gradient-to-br from-[#2b1d16] via-[#4b2e24] to-[#7c4a2d] text-white shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
           <div className="absolute -top-10 -left-10 h-40 w-40 rounded-full bg-orange-300/20 blur-3xl" />
           <div className="absolute bottom-0 right-0 h-56 w-56 rounded-full bg-pink-400/15 blur-3xl" />
@@ -134,7 +147,6 @@ export default function BecomeSellerPage() {
           </div>
         </div>
 
-        {/* Right form section */}
         <div className="rounded-[28px] border border-slate-200 bg-white/90 backdrop-blur-sm shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
           <div className="p-8 md:p-10">
             <div className="inline-flex items-center gap-2 rounded-full bg-orange-50 text-orange-700 px-4 py-2 text-sm font-medium">
@@ -151,14 +163,7 @@ export default function BecomeSellerPage() {
               you’ll be able to start selling your artistic products on the platform.
             </p>
 
-            <form
-              onSubmit={(e) =>
-                toast.promise(apply(e), {
-                  loading: "Submitting...",
-                })
-              }
-              className="mt-8 space-y-5"
-            >
+            <form onSubmit={handleSubmit} className="mt-8 space-y-5">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Business Name
@@ -177,7 +182,10 @@ export default function BecomeSellerPage() {
                 Make sure your business name is accurate and professional.
               </div>
 
-              <button className="group w-full rounded-2xl bg-slate-900 px-5 py-3.5 text-white font-medium transition hover:bg-slate-800 active:scale-[0.99] flex items-center justify-center gap-2">
+              <button
+                type="submit"
+                className="group w-full rounded-2xl bg-slate-900 px-5 py-3.5 text-white font-medium transition hover:bg-slate-800 active:scale-[0.99] flex items-center justify-center gap-2"
+              >
                 Apply Now
                 <ArrowRight
                   size={18}

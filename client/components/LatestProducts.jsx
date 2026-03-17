@@ -184,7 +184,7 @@ const LatestProducts = () => {
             <div className="mt-12 flex justify-center">
               <a
                 href="/shop"
-                className="group inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-pink-500 via-purple-500 to-orange-400 px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_35px_rgba(236,72,153,0.22)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(168,85,247,0.28)]"
+                className="group inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-orange-300 via-purple-300 to-pink-300 px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_35px_rgba(236,72,153,0.22)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(168,85,247,0.28)]"
               >
                 Discover More
                 <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
@@ -197,7 +197,7 @@ const LatestProducts = () => {
               <Sparkles className="h-6 w-6" />
             </div>
 
-            <h3 className="mt-5 bg-gradient-to-r from-pink-500 via-purple-500 to-orange-400 bg-clip-text text-2xl font-semibold text-transparent">
+            <h3 className="mt-5 bg-gradient-to-r from-orange-300 via-purple-500 to-orange-400 bg-clip-text text-2xl font-semibold text-transparent">
               No products found
             </h3>
 

@@ -189,7 +189,7 @@ const Footer = () => {
           <div className="max-w-[430px]">
             <div className="inline-flex items-center gap-2 rounded-full border border-pink-200/70 bg-gradient-to-r from-pink-100/80 via-purple-100/80 to-orange-100/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-slate-700 shadow-sm">
               <Sparkles className="h-3.5 w-3.5 text-pink-500" />
-              Charis Atelier
+              
             </div>
 
             <Link href="/" className="mt-5 block text-4xl font-semibold text-slate-700">

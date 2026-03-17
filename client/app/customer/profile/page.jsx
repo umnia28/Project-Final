@@ -2,16 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
+import Loading from "@/components/Loading";
 import {
   UserRound,
   Mail,
   Phone,
   VenusAndMars,
-  Sparkles,
-  ShieldCheck,
-  PencilLine,
+  SparklesIcon,
+  ShieldCheckIcon,
   Camera,
   ImagePlus,
+  UserCircle2Icon,
+  BadgeCheckIcon,
 } from "lucide-react";
 
 const API = "http://localhost:5000";
@@ -25,81 +27,78 @@ const emptyProfile = {
   profile_img: "",
 };
 
-function Field({ label, icon: Icon, children }) {
+function GradientBorder({ children, style = {} }) {
   return (
-    <div>
-      <label
-        style={{
-          display: "block",
-          marginBottom: 10,
-          fontSize: 12,
-          fontWeight: 600,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          color: "#a855f7",
-          fontFamily: "Inter, sans-serif",
-        }}
-      >
-        {label}
-      </label>
-
-      <div style={{ position: "relative" }}>
-        <div
-          style={{
-            position: "absolute",
-            left: 14,
-            top: "50%",
-            transform: "translateY(-50%)",
-            width: 18,
-            height: 18,
-            color: "#a78bfa",
-            pointerEvents: "none",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1,
-          }}
-        >
-          <Icon size={16} strokeWidth={1.9} />
-        </div>
-        {children}
-      </div>
+    <div
+      style={{
+        padding: 1.5,
+        background: "linear-gradient(135deg,#ec4899,#a855f7,#f97316)",
+        borderRadius: 24,
+        ...style,
+      }}
+    >
+      <div style={{ background: "#fffaf7", borderRadius: 23 }}>{children}</div>
     </div>
   );
 }
 
-function StatCard({ title, value }) {
+function InfoCard({ icon: Icon, title, value, gradFrom, gradTo, border, iconColor }) {
+  const [hovered, setHovered] = useState(false);
+
   return (
     <div
       style={{
-        borderRadius: 20,
-        padding: "18px 18px",
-        background: "linear-gradient(180deg, rgba(255,255,255,0.82), rgba(255,250,247,0.9))",
-        border: "1px solid rgba(255,255,255,0.7)",
-        boxShadow: "0 10px 30px rgba(168,85,247,0.08)",
-        backdropFilter: "blur(16px)",
+        background: `linear-gradient(135deg,${gradFrom},${gradTo})`,
+        border: `1px solid ${border}`,
+        borderRadius: 18,
+        padding: "18px 20px",
+        transform: hovered ? "translateY(-2px)" : "none",
+        boxShadow: hovered ? "0 10px 30px rgba(168,85,247,0.12)" : "none",
+        transition: "transform 0.2s, box-shadow 0.2s",
       }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 12,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 11,
+            color: "#78716c",
+            fontFamily: "sans-serif",
+            letterSpacing: "0.06em",
+          }}
+        >
+          {title}
+        </span>
+        <div
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 9,
+            background: "#fff",
+            border: `1px solid ${border}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Icon size={14} color={iconColor} strokeWidth={1.8} />
+        </div>
+      </div>
       <p
         style={{
           margin: 0,
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: "0.1em",
-          textTransform: "uppercase",
-          color: "#8b5cf6",
-          fontFamily: "Inter, sans-serif",
-        }}
-      >
-        {title}
-      </p>
-      <p
-        style={{
-          margin: "8px 0 0",
-          fontSize: 18,
+          fontSize: 17,
           fontWeight: 600,
-          color: "#1f172a",
-          fontFamily: "Georgia, serif",
+          color: "#1c1917",
+          fontFamily: "Georgia,serif",
           wordBreak: "break-word",
         }}
       >
@@ -253,214 +252,205 @@ export default function CustomerProfilePage() {
   const inputStyle = {
     width: "100%",
     boxSizing: "border-box",
-    border: "1px solid rgba(221,214,254,0.9)",
-    borderRadius: 16,
-    padding: "15px 16px 15px 44px",
-    fontSize: 15,
-    fontFamily: "Inter, sans-serif",
-    color: "#1f172a",
-    background: "rgba(255,255,255,0.72)",
+    border: "1.5px solid #e9d5ff",
+    borderRadius: 13,
+    padding: "13px 16px",
+    fontSize: 14,
+    fontFamily: "sans-serif",
+    color: "#1c1917",
+    background: "#fffaf7",
     outline: "none",
-    transition: "all 0.2s ease",
-    backdropFilter: "blur(10px)",
+    transition: "border-color 0.2s, box-shadow 0.2s",
   };
 
-  const attachFocusStyles = {
-    onFocus: (e) => {
-      e.target.style.borderColor = "#c084fc";
-      e.target.style.boxShadow = "0 0 0 4px rgba(192,132,252,0.12)";
-      e.target.style.background = "#ffffff";
-    },
-    onBlur: (e) => {
-      e.target.style.borderColor = "rgba(221,214,254,0.9)";
-      e.target.style.boxShadow = "none";
-      e.target.style.background = "rgba(255,255,255,0.72)";
-    },
-  };
+  if (loading) return <Loading />;
 
-  if (loading) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          padding: "40px 24px",
-          background:
-            "radial-gradient(circle at top left, rgba(236,72,153,0.12), transparent 28%), radial-gradient(circle at top right, rgba(168,85,247,0.12), transparent 28%), linear-gradient(180deg, #fcf7ff 0%, #fff8f4 100%)",
-        }}
-      >
-        <div style={{ maxWidth: 980, margin: "0 auto" }}>
-          <div
-            style={{
-              borderRadius: 28,
-              padding: "36px",
-              background: "rgba(255,255,255,0.72)",
-              border: "1px solid rgba(255,255,255,0.8)",
-              backdropFilter: "blur(18px)",
-              boxShadow: "0 20px 50px rgba(168,85,247,0.08)",
-              textAlign: "center",
-              color: "#6b7280",
-              fontFamily: "Inter, sans-serif",
-            }}
-          >
-            Loading profile...
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const infoCards = [
+    {
+      title: "Username",
+      value: form.username || "N/A",
+      icon: UserRound,
+      gradFrom: "#fce7f3",
+      gradTo: "#e9d5ff",
+      border: "#f9a8d4",
+      iconColor: "#be185d",
+    },
+    {
+      title: "Email",
+      value: form.email || "N/A",
+      icon: Mail,
+      gradFrom: "#e9d5ff",
+      gradTo: "#ddd6fe",
+      border: "#c4b5fd",
+      iconColor: "#7c3aed",
+    },
+    {
+      title: "Contact",
+      value: form.contact_no || "N/A",
+      icon: Phone,
+      gradFrom: "#fdf4ff",
+      gradTo: "#fce7f3",
+      border: "#e9d5ff",
+      iconColor: "#a855f7",
+    },
+    {
+      title: "Gender",
+      value: form.gender || "Not set",
+      icon: VenusAndMars,
+      gradFrom: "#fce7f3",
+      gradTo: "#fed7aa",
+      border: "#fdba74",
+      iconColor: "#c2410c",
+    },
+    {
+      title: "Account Type",
+      value: "Customer",
+      icon: BadgeCheckIcon,
+      gradFrom: "#fdf4ff",
+      gradTo: "#e9d5ff",
+      border: "#c4b5fd",
+      iconColor: "#6d28d9",
+    },
+  ];
 
   return (
     <div
       style={{
+        position: "relative",
         minHeight: "100vh",
-        padding: "40px 24px",
-        background:
-          "radial-gradient(circle at top left, rgba(236,72,153,0.12), transparent 28%), radial-gradient(circle at top right, rgba(168,85,247,0.12), transparent 28%), radial-gradient(circle at bottom center, rgba(249,115,22,0.08), transparent 25%), linear-gradient(180deg, #fcf7ff 0%, #fff8f4 100%)",
+        padding: "44px 24px",
+        fontFamily: "Georgia,serif",
       }}
     >
-      <div style={{ maxWidth: 980, margin: "0 auto" }}>
-        {/* Hero */}
+      <div
+        style={{
+          position: "fixed",
+          top: -80,
+          left: -80,
+          width: 420,
+          height: 420,
+          borderRadius: "50%",
+          background: "radial-gradient(circle,rgba(236,72,153,0.13),transparent 70%)",
+          pointerEvents: "none",
+          zIndex: 0,
+        }}
+      />
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          right: -60,
+          width: 340,
+          height: 340,
+          borderRadius: "50%",
+          background: "radial-gradient(circle,rgba(168,85,247,0.12),transparent 70%)",
+          pointerEvents: "none",
+          zIndex: 0,
+        }}
+      />
+      <div
+        style={{
+          position: "fixed",
+          bottom: 0,
+          left: "40%",
+          width: 380,
+          height: 280,
+          borderRadius: "50%",
+          background: "radial-gradient(circle,rgba(249,115,22,0.10),transparent 70%)",
+          pointerEvents: "none",
+          zIndex: 0,
+        }}
+      />
+
+      <div style={{ position: "relative", zIndex: 1, maxWidth: 1000, margin: "0 auto" }}>
+        {/* hero */}
         <div
           style={{
-            position: "relative",
-            overflow: "hidden",
-            borderRadius: 32,
-            padding: "34px 34px 30px",
-            background:
-              "linear-gradient(135deg, rgba(255,255,255,0.8), rgba(255,250,247,0.78))",
-            border: "1px solid rgba(255,255,255,0.85)",
-            boxShadow: "0 24px 70px rgba(168,85,247,0.10)",
-            backdropFilter: "blur(20px)",
-            marginBottom: 24,
+            padding: 1.5,
+            background: "linear-gradient(135deg,#ec4899,#a855f7,#f97316)",
+            borderRadius: 28,
+            marginBottom: 36,
           }}
         >
           <div
             style={{
-              position: "absolute",
-              top: -60,
-              right: -40,
-              width: 180,
-              height: 180,
-              borderRadius: "50%",
-              background: "radial-gradient(circle, rgba(236,72,153,0.16), transparent 70%)",
-              pointerEvents: "none",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              bottom: -70,
-              left: -40,
-              width: 220,
-              height: 220,
-              borderRadius: "50%",
-              background: "radial-gradient(circle, rgba(168,85,247,0.12), transparent 70%)",
-              pointerEvents: "none",
-            }}
-          />
-
-          <div
-            style={{
-              position: "relative",
-              zIndex: 1,
+              background: "#fffaf7",
+              borderRadius: 27,
+              padding: "36px 44px",
               display: "flex",
               flexWrap: "wrap",
-              justifyContent: "space-between",
               alignItems: "center",
-              gap: 20,
+              justifyContent: "space-between",
+              gap: 28,
             }}
           >
-            <div style={{ maxWidth: 560 }}>
+            <div>
               <div
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 8,
-                  padding: "7px 14px",
+                  marginBottom: 18,
+                  padding: "5px 18px",
+                  background: "linear-gradient(135deg,#fce7f3,#e9d5ff,#fed7aa)",
                   borderRadius: 999,
-                  background: "linear-gradient(135deg,#fce7f3,#ede9fe,#ffedd5)",
-                  color: "#7c3aed",
+                  fontFamily: "sans-serif",
                   fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: "0.12em",
+                  letterSpacing: "0.18em",
                   textTransform: "uppercase",
-                  fontFamily: "Inter, sans-serif",
-                  marginBottom: 16,
+                  color: "#7e22ce",
                 }}
               >
-                <Sparkles size={13} />
-                Customer Profile
+                <SparklesIcon size={11} strokeWidth={2} />
+                Customer Account
               </div>
-
-              <h1
-                style={{
-                  margin: 0,
-                  fontSize: 38,
-                  lineHeight: 1.08,
-                  color: "#18181b",
-                  fontWeight: 600,
-                  fontFamily: "Georgia, serif",
-                }}
-              >
-                Your profile,
-                <br />
-                beautifully organized
+              <h1 style={{ margin: 0, fontSize: 32, fontWeight: 600, color: "#1c1917" }}>
+                Customer Profile
               </h1>
-
               <p
                 style={{
-                  margin: "14px 0 0",
+                  margin: "10px 0 0",
                   fontSize: 15,
-                  lineHeight: 1.8,
-                  color: "#6b7280",
-                  fontFamily: "Inter, sans-serif",
-                  maxWidth: 520,
+                  color: "#78716c",
+                  fontFamily: "sans-serif",
+                  lineHeight: 1.75,
                 }}
               >
-                
+                Manage your personal information and profile settings.
               </p>
             </div>
 
             <div
               style={{
-                minWidth: 280,
                 display: "flex",
                 alignItems: "center",
                 gap: 16,
-                padding: "18px 20px",
-                borderRadius: 24,
-                background: "rgba(255,255,255,0.68)",
-                border: "1px solid rgba(255,255,255,0.85)",
-                boxShadow: "0 14px 30px rgba(236,72,153,0.08)",
-                backdropFilter: "blur(12px)",
+                padding: "18px 22px",
+                background: "linear-gradient(135deg,#fce7f3,#e9d5ff,#fed7aa)",
+                borderRadius: 20,
               }}
             >
               <div style={{ position: "relative", flexShrink: 0 }}>
                 <div
                   style={{
-                    width: 72,
-                    height: 72,
-                    borderRadius: "50%",
+                    width: 52,
+                    height: 52,
+                    borderRadius: 16,
                     overflow: "hidden",
                     background: "linear-gradient(135deg,#ec4899,#a855f7,#f97316)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    boxShadow: "0 16px 30px rgba(168,85,247,0.18)",
                   }}
                 >
                   {previewUrl ? (
                     <img
                       src={previewUrl}
                       alt="Profile"
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                      }}
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
                     />
                   ) : (
-                    <UserRound size={32} color="#fff" strokeWidth={1.7} />
+                    <UserCircle2Icon size={26} color="#fff" strokeWidth={1.5} />
                   )}
                 </div>
 
@@ -469,21 +459,22 @@ export default function CustomerProfilePage() {
                   onClick={handlePickImage}
                   style={{
                     position: "absolute",
-                    right: -2,
-                    bottom: -2,
-                    width: 30,
-                    height: 30,
+                    right: -6,
+                    bottom: -6,
+                    width: 22,
+                    height: 22,
                     borderRadius: "50%",
                     border: "none",
                     background: "#fff",
-                    boxShadow: "0 8px 18px rgba(0,0,0,0.12)",
+                    boxShadow: "0 6px 14px rgba(0,0,0,0.12)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     cursor: "pointer",
+                    padding: 0,
                   }}
                 >
-                  <Camera size={14} color="#7c3aed" />
+                  <Camera size={11} color="#7c3aed" />
                 </button>
 
                 <input
@@ -499,252 +490,164 @@ export default function CustomerProfilePage() {
                 <p
                   style={{
                     margin: 0,
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: 600,
-                    color: "#18181b",
-                    fontFamily: "Georgia, serif",
+                    color: "#1c1917",
                   }}
                 >
-                  {form.full_name || form.username || "Customer"}
+                  {form.full_name || form.username}
                 </p>
                 <p
                   style={{
-                    margin: "5px 0 0",
+                    margin: "4px 0 0",
                     fontSize: 13,
-                    color: "#8b5cf6",
-                    fontFamily: "Inter, sans-serif",
+                    color: "#a855f7",
+                    fontFamily: "sans-serif",
                   }}
                 >
-                  {form.email || "Your account"}
-                </p>
-                <p
-                  style={{
-                    margin: "7px 0 0",
-                    fontSize: 12,
-                    color: "#6b7280",
-                    fontFamily: "Inter, sans-serif",
-                  }}
-                >
-                  Tap the camera icon to change your photo
+                  {form.email}
                 </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Stats */}
+        {/* info cards */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+            gridTemplateColumns: "repeat(auto-fit,minmax(175px,1fr))",
             gap: 14,
-            marginBottom: 24,
+            marginBottom: 36,
           }}
         >
-          <StatCard title="Username" value={form.username || "N/A"} />
-          <StatCard title="Email" value={form.email || "N/A"} />
-          <StatCard title="Contact" value={form.contact_no || "N/A"} />
-          <StatCard title="Gender" value={form.gender || "Not set"} />
+          {infoCards.map((card) => (
+            <InfoCard key={card.title} {...card} />
+          ))}
         </div>
 
-        {/* Form card */}
-        <div
-          style={{
-            borderRadius: 32,
-            padding: "30px",
-            background: "rgba(255,255,255,0.74)",
-            border: "1px solid rgba(255,255,255,0.85)",
-            boxShadow: "0 24px 70px rgba(168,85,247,0.08)",
-            backdropFilter: "blur(20px)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 14,
-              marginBottom: 26,
-            }}
-          >
-            <div>
+        {/* edit form */}
+        <GradientBorder>
+          <div style={{ padding: "36px 36px 32px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
+              <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: "#1c1917" }}>
+                Edit Profile
+              </h2>
               <div
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
+                  flex: 1,
+                  height: 1,
+                  background: "linear-gradient(to right,#f9a8d4,#c084fc,transparent)",
                 }}
-              >
-                <div
-                  style={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: 14,
-                    background: "linear-gradient(135deg,#ec4899,#a855f7,#f97316)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    boxShadow: "0 12px 24px rgba(168,85,247,0.16)",
-                  }}
-                >
-                  <PencilLine size={18} color="#fff" />
-                </div>
-                <div>
-                  <h2
-                    style={{
-                      margin: 0,
-                      fontSize: 24,
-                      color: "#18181b",
-                      fontWeight: 600,
-                      fontFamily: "Georgia, serif",
-                    }}
-                  >
-                    Edit Profile
-                  </h2>
-                  <p
-                    style={{
-                      margin: "4px 0 0",
-                      color: "#6b7280",
-                      fontSize: 13,
-                      fontFamily: "Inter, sans-serif",
-                    }}
-                  >
-                    Update your personal details anytime.
-                  </p>
-                </div>
-              </div>
+              />
             </div>
 
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "10px 14px",
-                borderRadius: 999,
-                background: "rgba(255,255,255,0.72)",
-                border: "1px solid rgba(221,214,254,0.9)",
-                color: "#6d28d9",
-                fontSize: 13,
-                fontWeight: 600,
-                fontFamily: "Inter, sans-serif",
-              }}
-            >
-              <ShieldCheck size={15} />
-              Secure account details
-            </div>
-          </div>
+            <form onSubmit={handleSubmit}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                {[
+                  { name: "username", label: "Username", type: "text" },
+                  { name: "email", label: "Email", type: "email" },
+                  { name: "full_name", label: "Full Name", type: "text" },
+                  { name: "contact_no", label: "Contact No", type: "text" },
+                ].map(({ name, label, type }) => (
+                  <div key={name}>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: 11,
+                        fontFamily: "sans-serif",
+                        color: "#a855f7",
+                        letterSpacing: "0.1em",
+                        textTransform: "uppercase",
+                        marginBottom: 7,
+                      }}
+                    >
+                      {label}
+                    </label>
+                    <input
+                      type={type}
+                      name={name}
+                      value={form[name]}
+                      onChange={handleChange}
+                      style={inputStyle}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = "#c084fc";
+                        e.target.style.boxShadow = "0 0 0 3px rgba(192,132,252,0.12)";
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = "#e9d5ff";
+                        e.target.style.boxShadow = "none";
+                      }}
+                    />
+                  </div>
+                ))}
 
-          <form onSubmit={handleSubmit}>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 20,
-              }}
-            >
-              <Field label="Username" icon={UserRound}>
-                <input
-                  type="text"
-                  name="username"
-                  value={form.username}
-                  onChange={handleChange}
-                  style={inputStyle}
-                  {...attachFocusStyles}
-                />
-              </Field>
-
-              <Field label="Email" icon={Mail}>
-                <input
-                  type="email"
-                  name="email"
-                  value={form.email}
-                  onChange={handleChange}
-                  style={inputStyle}
-                  {...attachFocusStyles}
-                />
-              </Field>
-
-              <Field label="Full Name" icon={UserRound}>
-                <input
-                  type="text"
-                  name="full_name"
-                  value={form.full_name}
-                  onChange={handleChange}
-                  style={inputStyle}
-                  {...attachFocusStyles}
-                />
-              </Field>
-
-              <Field label="Contact No" icon={Phone}>
-                <input
-                  type="text"
-                  name="contact_no"
-                  value={form.contact_no}
-                  onChange={handleChange}
-                  style={inputStyle}
-                  {...attachFocusStyles}
-                />
-              </Field>
-
-              <div style={{ gridColumn: "1 / -1" }}>
-                <Field label="Gender" icon={VenusAndMars}>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: 11,
+                      fontFamily: "sans-serif",
+                      color: "#a855f7",
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      marginBottom: 7,
+                    }}
+                  >
+                    Gender
+                  </label>
                   <select
                     name="gender"
                     value={form.gender}
                     onChange={handleChange}
-                    style={{
-                      ...inputStyle,
-                      appearance: "none",
-                      cursor: "pointer",
+                    style={{ ...inputStyle, appearance: "none", cursor: "pointer" }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = "#c084fc";
+                      e.target.style.boxShadow = "0 0 0 3px rgba(192,132,252,0.12)";
                     }}
-                    {...attachFocusStyles}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = "#e9d5ff";
+                      e.target.style.boxShadow = "none";
+                    }}
                   >
                     <option value="">Select Gender</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
                     <option value="other">Other</option>
                   </select>
-                </Field>
-              </div>
+                </div>
 
-              <div style={{ gridColumn: "1 / -1" }}>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: 10,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                    color: "#a855f7",
-                    fontFamily: "Inter, sans-serif",
-                  }}
-                >
-                  Profile Image
-                </label>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: 11,
+                      fontFamily: "sans-serif",
+                      color: "#a855f7",
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      marginBottom: 7,
+                    }}
+                  >
+                    Profile Image
+                  </label>
 
-                <div
-                  style={{
-                    border: "1px dashed rgba(192,132,252,0.8)",
-                    borderRadius: 20,
-                    padding: "18px",
-                    background: "rgba(255,255,255,0.6)",
-                  }}
-                >
                   <div
                     style={{
+                      border: "1.5px dashed #e9d5ff",
+                      borderRadius: 13,
+                      padding: "14px 16px",
+                      background: "#fffaf7",
                       display: "flex",
-                      flexWrap: "wrap",
                       alignItems: "center",
-                      gap: 16,
+                      gap: 14,
+                      flexWrap: "wrap",
                     }}
                   >
                     <div
                       style={{
-                        width: 86,
-                        height: 86,
+                        width: 64,
+                        height: 64,
                         borderRadius: "50%",
                         overflow: "hidden",
                         background: "#f3e8ff",
@@ -758,14 +661,10 @@ export default function CustomerProfilePage() {
                         <img
                           src={previewUrl}
                           alt="Selected profile"
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                          }}
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
                         />
                       ) : (
-                        <ImagePlus size={28} color="#7c3aed" />
+                        <ImagePlus size={22} color="#7c3aed" />
                       )}
                     </div>
 
@@ -773,24 +672,24 @@ export default function CustomerProfilePage() {
                       <p
                         style={{
                           margin: 0,
-                          fontSize: 15,
+                          fontSize: 14,
                           fontWeight: 600,
-                          color: "#18181b",
-                          fontFamily: "Inter, sans-serif",
+                          color: "#1c1917",
+                          fontFamily: "sans-serif",
                         }}
                       >
-                        Upload a new profile photo
+                        Upload profile photo
                       </p>
                       <p
                         style={{
-                          margin: "6px 0 0",
-                          fontSize: 13,
-                          color: "#6b7280",
-                          fontFamily: "Inter, sans-serif",
-                          lineHeight: 1.7,
+                          margin: "4px 0 0",
+                          fontSize: 12,
+                          color: "#78716c",
+                          fontFamily: "sans-serif",
+                          lineHeight: 1.6,
                         }}
                       >
-                        Choose an image and it will be used as your main profile picture.
+                        Choose an image to use as your customer profile picture.
                       </p>
                     </div>
 
@@ -799,13 +698,13 @@ export default function CustomerProfilePage() {
                       onClick={handlePickImage}
                       style={{
                         border: "none",
-                        borderRadius: 14,
-                        padding: "12px 18px",
+                        borderRadius: 11,
+                        padding: "10px 14px",
                         background: "linear-gradient(135deg,#ec4899,#a855f7,#f97316)",
                         color: "#fff",
-                        fontSize: 14,
-                        fontWeight: 700,
-                        fontFamily: "Inter, sans-serif",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        fontFamily: "sans-serif",
                         cursor: "pointer",
                       }}
                     >
@@ -814,65 +713,46 @@ export default function CustomerProfilePage() {
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div
-              style={{
-                marginTop: 28,
-                display: "flex",
-                flexWrap: "wrap",
-                alignItems: "center",
-                gap: 14,
-              }}
-            >
-              <button
-                type="submit"
-                disabled={saving}
-                style={{
-                  border: "none",
-                  borderRadius: 16,
-                  padding: "14px 26px",
-                  background: saved
-                    ? "linear-gradient(135deg,#8b5cf6,#6d28d9)"
-                    : "linear-gradient(135deg,#ec4899,#a855f7,#f97316)",
-                  color: "#fff",
-                  fontSize: 14,
-                  fontWeight: 700,
-                  fontFamily: "Inter, sans-serif",
-                  cursor: saving ? "default" : "pointer",
-                  opacity: saving ? 0.8 : 1,
-                  boxShadow: "0 16px 30px rgba(168,85,247,0.18)",
-                  transition: "transform 0.2s ease, opacity 0.2s ease",
-                }}
-                onMouseEnter={(e) => {
-                  if (!saving) e.currentTarget.style.transform = "translateY(-1px)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
-                }}
-              >
-                {saving ? "Saving..." : saved ? "Profile Updated" : "Update Profile"}
-              </button>
-
-              {saved && (
-                <div
+              <div style={{ marginTop: 28, display: "flex", alignItems: "center", gap: 16 }}>
+                <button
+                  type="submit"
+                  disabled={saving}
                   style={{
-                    padding: "10px 14px",
-                    borderRadius: 999,
-                    background: "rgba(139,92,246,0.08)",
-                    color: "#7c3aed",
-                    border: "1px solid rgba(196,181,253,0.9)",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    fontFamily: "Inter, sans-serif",
+                    padding: "13px 32px",
+                    background: saved
+                      ? "linear-gradient(135deg,#a855f7,#6d28d9)"
+                      : "linear-gradient(135deg,#ec4899,#a855f7,#f97316)",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 13,
+                    fontFamily: "sans-serif",
+                    fontSize: 14,
+                    fontWeight: 500,
+                    letterSpacing: "0.05em",
+                    cursor: saving ? "default" : "pointer",
+                    transition: "opacity 0.2s, background 0.4s",
+                    opacity: saving ? 0.75 : 1,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!saving) e.currentTarget.style.opacity = "0.85";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.opacity = "1";
                   }}
                 >
-                  Changes saved successfully
-                </div>
-              )}
-            </div>
-          </form>
-        </div>
+                  {saved ? "✦ Profile Updated" : saving ? "Saving…" : "Update Profile"}
+                </button>
+
+                {saved && (
+                  <span style={{ fontSize: 13, color: "#a855f7", fontFamily: "sans-serif" }}>
+                    Changes saved successfully
+                  </span>
+                )}
+              </div>
+            </form>
+          </div>
+        </GradientBorder>
       </div>
     </div>
   );

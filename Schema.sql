@@ -320,3 +320,7 @@ ADD COLUMN IF NOT EXISTS cancelled_by VARCHAR(30);
 
 ALTER TABLE order_item
 ADD COLUMN IF NOT EXISTS delivery_status VARCHAR(30) NOT NULL DEFAULT 'not_ready';
+
+
+ALTER TABLE seller
+ALTER COLUMN approved_by DROP NOT NULL;

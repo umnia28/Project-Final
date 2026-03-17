@@ -119,7 +119,7 @@ const Newsletter = () => {
                 className={`inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_35px_rgba(236,72,153,0.22)] transition-all duration-300 ${
                   loading
                     ? 'cursor-not-allowed bg-slate-300'
-                    : 'bg-gradient-to-r from-pink-500 via-purple-500 to-orange-400 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(168,85,247,0.28)]'
+                    : 'bg-gradient-to-r from-orange-800 via-pink-500 to-orange-300 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(168,85,247,0.28)]'
                 }`}
               >
                 {loading ? 'Sending...' : 'Get Updates'}
