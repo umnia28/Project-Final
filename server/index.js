@@ -22,7 +22,6 @@ import publicProductsRoutes from "./routes/products.public.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import payoutRoutes from "./routes/payout.routes.js";
 import adminStoresRoutes from "./routes/admin.stores.routes.js";
-
 import promoRoutes from "./routes/promo.routes.js"
 import customerRoutes from "./routes/customerRoutes.js";
 import deliveryManRoutes from "./routes/deliveryManRoutes.js";

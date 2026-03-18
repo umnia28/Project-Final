@@ -6,10 +6,8 @@ import {
   HomeIcon,
   CatIcon,
   ShoppingBasketIcon,
-  DollarSign,
-  PercentSquare,
   NotebookIcon,
-
+  BellIcon,
 } from "lucide-react";
 
 export default function DeliverymanSidebar() {
@@ -18,9 +16,9 @@ export default function DeliverymanSidebar() {
   const links = [
     { name: "Dashboard", href: "/deliveryman/dashboard", icon: HomeIcon },
     { name: "Profile", href: "/deliveryman/profile", icon: CatIcon },
-    { name: "Assigned Orders", href: "/deliveryman/assignedorders", icon: NotebookIcon},
+    { name: "Notifications", href: "/deliveryman/notifications", icon: BellIcon },
+    { name: "Assigned Orders", href: "/deliveryman/assignedorders", icon: NotebookIcon },
     { name: "Delivered Orders", href: "/deliveryman/deliveredorders", icon: ShoppingBasketIcon },
-    { name: "Salary", href: "/deliveryman/salary", icon:  DollarSign },
   ];
 
   return (

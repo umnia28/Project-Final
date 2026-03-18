@@ -16,31 +16,25 @@ export const getDeliveryDashboard = async (req, res) => {
       [userId]
     );
 
-    const statusCountsRes = await pool.query(
+    const itemStatusCountsRes = await pool.query(
       `
-      WITH latest_status AS (
-        SELECT DISTINCT ON (os.order_id)
-          os.order_id,
-          os.status_type
-        FROM order_status os
-        ORDER BY os.order_id, os.status_time DESC
-      )
       SELECT
         COUNT(*) FILTER (
-          WHERE LOWER(COALESCE(ls.status_type, 'placed')) = 'confirmed'
+          WHERE oi.delivery_status = 'not_ready'
         )::int AS confirmed_orders,
         COUNT(*) FILTER (
-          WHERE LOWER(COALESCE(ls.status_type, 'placed')) = 'shipped'
+          WHERE oi.delivery_status = 'shipment_ready'
         )::int AS shipped_orders,
         COUNT(*) FILTER (
-          WHERE LOWER(COALESCE(ls.status_type, 'placed')) = 'out_for_delivery'
+          WHERE oi.delivery_status = 'out_for_delivery'
         )::int AS out_for_delivery_orders,
         COUNT(*) FILTER (
-          WHERE LOWER(COALESCE(ls.status_type, 'placed')) = 'delivered'
+          WHERE oi.delivery_status = 'delivered'
         )::int AS delivered_orders
-      FROM "order" o
-      LEFT JOIN latest_status ls ON ls.order_id = o.order_id
+      FROM order_item oi
+      JOIN "order" o ON o.order_id = oi.order_id
       WHERE o.delivery_man_id = $1
+        AND oi.cancelled_by IS NULL
       `,
       [userId]
     );
@@ -49,37 +43,39 @@ export const getDeliveryDashboard = async (req, res) => {
       `
       SELECT COUNT(*)::int AS unread_notifications
       FROM notification
-      WHERE user_id = $1 AND seen_status = FALSE
+      WHERE user_id = $1
+        AND seen_status = FALSE
       `,
       [userId]
     );
 
     const recentOrdersRes = await pool.query(
       `
-      WITH latest_status AS (
-        SELECT DISTINCT ON (os.order_id)
-          os.order_id,
-          os.status_type,
-          os.status_time
-        FROM order_status os
-        ORDER BY os.order_id, os.status_time DESC
-      )
-      SELECT
+      SELECT DISTINCT ON (o.order_id)
         o.order_id,
         o.total_price,
         o.date_added,
         o.delivery_time,
-        COALESCE(ls.status_type, 'placed') AS order_status,
         sa.address,
         sa.city,
         sa.shipping_state,
         sa.zip_code,
-        sa.country
+        sa.country,
+        COALESCE(
+          (
+            SELECT oi2.delivery_status
+            FROM order_item oi2
+            WHERE oi2.order_id = o.order_id
+              AND oi2.cancelled_by IS NULL
+            ORDER BY oi2.order_item_id DESC
+            LIMIT 1
+          ),
+          'not_ready'
+        ) AS order_status
       FROM "order" o
-      LEFT JOIN latest_status ls ON ls.order_id = o.order_id
       LEFT JOIN shipping_address sa ON sa.address_id = o.address_id
       WHERE o.delivery_man_id = $1
-      ORDER BY o.date_added DESC
+      ORDER BY o.order_id, o.date_added DESC
       LIMIT 5
       `,
       [userId]
@@ -88,11 +84,11 @@ export const getDeliveryDashboard = async (req, res) => {
     return res.json({
       stats: {
         total_assigned: totalAssignedRes.rows[0]?.total_assigned || 0,
-        confirmed_orders: statusCountsRes.rows[0]?.confirmed_orders || 0,
-        shipped_orders: statusCountsRes.rows[0]?.shipped_orders || 0,
+        confirmed_orders: itemStatusCountsRes.rows[0]?.confirmed_orders || 0,
+        shipped_orders: itemStatusCountsRes.rows[0]?.shipped_orders || 0,
         out_for_delivery_orders:
-          statusCountsRes.rows[0]?.out_for_delivery_orders || 0,
-        delivered_orders: statusCountsRes.rows[0]?.delivered_orders || 0,
+          itemStatusCountsRes.rows[0]?.out_for_delivery_orders || 0,
+        delivered_orders: itemStatusCountsRes.rows[0]?.delivered_orders || 0,
         unread_notifications:
           unreadNotificationsRes.rows[0]?.unread_notifications || 0,
       },
@@ -103,7 +99,6 @@ export const getDeliveryDashboard = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
-
 /* =========================
    ORDERS
 ========================= */
@@ -157,6 +152,9 @@ export const getDeliveryOrders = async (req, res) => {
         oi.qty,
         oi.price,
         oi.discount_amount,
+        oi.delivery_status,
+        oi.cancelled_by,
+        oi.cancel_reason,
         p.product_name,
         (
           SELECT pi.image_url
@@ -193,7 +191,6 @@ export const getDeliveryOrders = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
-
 /* =========================
    NOTIFICATIONS
 ========================= */
@@ -229,7 +226,7 @@ export const getDeliveryProfile = async (req, res) => {
   try {
     const userId = req.user.user_id;
 
-    const result = await pool.query(
+    const profileRes = await pool.query(
       `
       SELECT
         u.user_id,
@@ -242,8 +239,7 @@ export const getDeliveryProfile = async (req, res) => {
         u.status,
         u.created_at,
         d.joining_date,
-        d.salary,
-        d.total_orders
+        d.salary
       FROM users u
       JOIN delivery_man d ON d.user_id = u.user_id
       WHERE u.user_id = $1
@@ -251,17 +247,33 @@ export const getDeliveryProfile = async (req, res) => {
       [userId]
     );
 
-    if (result.rows.length === 0) {
+    if (profileRes.rows.length === 0) {
       return res.status(404).json({ message: "Delivery man not found" });
     }
 
-    return res.json({ user: result.rows[0] });
+    const deliveredCountRes = await pool.query(
+      `
+      SELECT COUNT(*)::int AS total_orders
+      FROM order_item oi
+      JOIN "order" o ON o.order_id = oi.order_id
+      WHERE o.delivery_man_id = $1
+        AND oi.delivery_status = 'delivered'
+        AND oi.cancelled_by IS NULL
+      `,
+      [userId]
+    );
+
+    const user = {
+      ...profileRes.rows[0],
+      total_orders: deliveredCountRes.rows[0]?.total_orders || 0,
+    };
+
+    return res.json({ user });
   } catch (err) {
     console.error("GET DELIVERY PROFILE ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
-
 export const updateDeliveryProfile = async (req, res) => {
   try {
     const userId = req.user.user_id;
@@ -337,108 +349,102 @@ export const updateDeliveryProfile = async (req, res) => {
    UPDATE ORDER STATUS
 ========================= */
 export const updateDeliveryOrderStatus = async (req, res) => {
-  const client = await pool.connect();
+  const { orderId } = req.params;
+  const { delivery_status } = req.body;
+  const deliverymanId = req.user.user_id;
 
   try {
-    const userId = req.user.user_id;
-    const { orderId } = req.params;
-    const { status_type } = req.body;
+    const allowedStatuses = ["out_for_delivery", "delivered"];
 
-    const allowedStatuses = ["shipped", "out_for_delivery", "delivered"];
-
-    if (!status_type) {
-      return res.status(400).json({ message: "status_type is required" });
-    }
-
-    if (!allowedStatuses.includes(status_type)) {
+    if (!allowedStatuses.includes(delivery_status)) {
       return res.status(400).json({
-        message:
-          "Invalid status_type. Allowed: shipped, out_for_delivery, delivered",
+        success: false,
+        message: "Invalid delivery status",
       });
     }
 
-    await client.query("BEGIN");
-
-    const orderCheck = await client.query(
+    const itemCheck = await pool.query(
       `
-      SELECT order_id, delivery_man_id
-      FROM "order"
-      WHERE order_id = $1
+      SELECT 
+        oi.order_item_id,
+        oi.order_id,
+        oi.delivery_status,
+        oi.cancelled_by,
+        o.delivery_man_id
+      FROM order_item oi
+      JOIN "order" o ON o.order_id = oi.order_id
+      WHERE oi.order_id = $1
       `,
       [orderId]
     );
 
-    if (orderCheck.rows.length === 0) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ message: "Order not found" });
+    if (itemCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No order items found for this order",
+      });
     }
 
-    if (String(orderCheck.rows[0].delivery_man_id) !== String(userId)) {
-      await client.query("ROLLBACK");
-      return res
-        .status(403)
-        .json({ message: "You are not assigned to this order" });
-    }
-
-    const latestStatusRes = await client.query(
-      `
-      SELECT status_type
-      FROM order_status
-      WHERE order_id = $1
-      ORDER BY status_time DESC
-      LIMIT 1
-      `,
-      [orderId]
+    const validItems = itemCheck.rows.filter(
+      (item) =>
+        Number(item.delivery_man_id) === Number(deliverymanId) &&
+        !item.cancelled_by
     );
 
-    const currentStatus =
-      latestStatusRes.rows[0]?.status_type?.toLowerCase() || "placed";
-
-    if (currentStatus === "delivered") {
-      await client.query("ROLLBACK");
-      return res
-        .status(400)
-        .json({ message: "Delivered order status cannot be changed" });
+    if (validItems.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: "No assigned active items found for this delivery man",
+      });
     }
 
-    await client.query(
+    if (delivery_status === "out_for_delivery") {
+      const hasInvalidStatus = validItems.some(
+        (item) => item.delivery_status !== "shipment_ready"
+      );
+
+      if (hasInvalidStatus) {
+        return res.status(400).json({
+          success: false,
+          message: "Only shipment_ready items can be marked out_for_delivery",
+        });
+      }
+    }
+
+    if (delivery_status === "delivered") {
+      const hasInvalidStatus = validItems.some(
+        (item) =>
+          item.delivery_status !== "out_for_delivery" &&
+          item.delivery_status !== "shipment_ready"
+      );
+
+      if (hasInvalidStatus) {
+        return res.status(400).json({
+          success: false,
+          message: "Only shipment_ready or out_for_delivery items can be marked delivered",
+        });
+      }
+    }
+
+    await pool.query(
       `
-      INSERT INTO order_status (order_id, status_type, updated_by)
-      VALUES ($1, $2, $3)
+      UPDATE order_item
+      SET delivery_status = $1
+      WHERE order_id = $2
+        AND cancelled_by IS NULL
       `,
-      [orderId, status_type, userId]
+      [delivery_status, orderId]
     );
-
-    if (status_type === "delivered") {
-      await client.query(
-        `
-        UPDATE "order"
-        SET delivery_time = NOW()
-        WHERE order_id = $1
-        `,
-        [orderId]
-      );
-
-      await client.query(
-        `
-        UPDATE delivery_man
-        SET total_orders = total_orders + 1
-        WHERE user_id = $1
-        `,
-        [userId]
-      );
-    }
-
-    await client.query("COMMIT");
 
     return res.json({
-      message: "Order status updated successfully",
+      success: true,
+      message: `Order marked as ${delivery_status}`,
     });
-  } catch (err) {
-    await client.query("ROLLBACK");
-    console.error("UPDATE DELIVERY ORDER STATUS ERROR:", err);
-    return res.status(500).json({ message: "Server error" });
-  } finally {
-    client.release();
+  } catch (error) {
+    console.error("UPDATE DELIVERY ORDER STATUS ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update delivery status",
+    });
   }
 };
