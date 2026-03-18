@@ -1,7 +1,17 @@
 'use client'
 
 import { usePathname } from "next/navigation"
-import { AxeIcon, CaravanIcon, HomeIcon, PiIcon, ShieldCheckIcon, StoreIcon, TicketPercentIcon, WalletIcon ,ShoppingBasketIcon ,CatIcon,PercentSquare} from "lucide-react"
+import {
+  HomeIcon,
+  PiIcon,
+  ShieldCheckIcon,
+  StoreIcon,
+  TicketPercentIcon,
+  WalletIcon,
+  ShoppingBasketIcon,
+  CatIcon,
+  PercentSquare
+} from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { assets } from "@/assets/assets"
@@ -14,37 +24,66 @@ const AdminSidebar = () => {
         { name: 'Dashboard', href: '/admin/dashboard', icon: HomeIcon },
         { name: "Profile", href: "/admin/profile", icon: CatIcon },
         { name: 'Stores', href: '/admin/stores', icon: StoreIcon },
-        { name: 'Orders', href: '/admin/orders', icon: ShoppingBasketIcon  },
+        { name: 'Orders', href: '/admin/orders', icon: ShoppingBasketIcon },
         { name: 'Approve Seller', href: '/admin/sellers', icon: ShieldCheckIcon },
         { name: 'Promos', href: '/admin/promos', icon: TicketPercentIcon },
         { name: 'Refunds', href: '/admin/refunds', icon: PiIcon },
         { name: "Notifications", href: "/admin/notifications", icon: PercentSquare },
-
-        // NEW PAYOUTS LINK
         { name: 'Payouts', href: '/admin/payouts', icon: WalletIcon },
     ]
 
     return (
-        <div className="inline-flex h-full flex-col gap-5 border-r border-slate-200 sm:min-w-60">
-            <div className="flex flex-col gap-3 justify-center items-center pt-8 max-sm:hidden">
-                <Image className="w-14 h-14 rounded-full" src={assets.gs_logo} alt="" width={380} height={380} />
+        <div className="inline-flex h-full flex-col gap-5 border-r border-[#e5dfec] bg-white/60 backdrop-blur-md sm:min-w-60">
+
+            {/* Logo */}
+            <div className="flex flex-col items-center justify-center gap-3 pt-8 max-sm:hidden">
+                <div className="rounded-full bg-gradient-to-br from-[#f7f1e8] via-[#efe7fb] to-[#eef6ff] p-2 shadow-sm">
+                    <Image
+                        className="h-14 w-14 rounded-full object-cover"
+                        src={assets.gs_logo}
+                        alt=""
+                        width={380}
+                        height={380}
+                    />
+                </div>
             </div>
 
+            {/* Links */}
             <div className="max-sm:mt-6">
                 {
-                    sidebarLinks.map((link, index) => (
-                        <Link
-                            key={index}
-                            href={link.href}
-                            className={`relative flex items-center gap-3 text-slate-500 hover:bg-slate-50 p-2.5 transition ${pathname === link.href && 'bg-slate-100 sm:text-slate-600'}`}
-                        >
-                            <link.icon size={18} className="sm:ml-5" />
-                            <p className="max-sm:hidden">{link.name}</p>
-                            {pathname === link.href && (
-                                <span className="absolute bg-green-500 right-0 top-1.5 bottom-1.5 w-1 sm:w-1.5 rounded-l"></span>
-                            )}
-                        </Link>
-                    ))
+                    sidebarLinks.map((link, index) => {
+                        const isActive = pathname === link.href
+
+                        return (
+                            <Link
+                                key={index}
+                                href={link.href}
+                                className={`
+                                    relative flex items-center gap-3 p-2.5 transition-all duration-300
+                                    ${isActive
+                                        ? "bg-gradient-to-r from-[#f2e8d8] via-[#efe7fb] to-[#e6f2ff] text-slate-700 shadow-sm"
+                                        : "text-slate-500 hover:bg-[#f8f6fc]"
+                                    }
+                                `}
+                            >
+                                <link.icon
+                                    size={18}
+                                    className={`sm:ml-5 ${
+                                        isActive ? "text-[#8b7bd6]" : "text-slate-500"
+                                    }`}
+                                />
+
+                                <p className="max-sm:hidden font-medium">
+                                    {link.name}
+                                </p>
+
+                                {/* Active indicator */}
+                                {isActive && (
+                                    <span className="absolute right-0 top-1.5 bottom-1.5 w-1.5 rounded-l bg-gradient-to-b from-[#a78bdb] to-[#7fb6ea]" />
+                                )}
+                            </Link>
+                        )
+                    })
                 }
             </div>
         </div>
@@ -52,3 +91,58 @@ const AdminSidebar = () => {
 }
 
 export default AdminSidebar
+
+// 'use client'
+
+// import { usePathname } from "next/navigation"
+// import { AxeIcon, CaravanIcon, HomeIcon, PiIcon, ShieldCheckIcon, StoreIcon, TicketPercentIcon, WalletIcon ,ShoppingBasketIcon ,CatIcon,PercentSquare} from "lucide-react"
+// import Image from "next/image"
+// import Link from "next/link"
+// import { assets } from "@/assets/assets"
+
+// const AdminSidebar = () => {
+
+//     const pathname = usePathname()
+
+//     const sidebarLinks = [
+//         { name: 'Dashboard', href: '/admin/dashboard', icon: HomeIcon },
+//         { name: "Profile", href: "/admin/profile", icon: CatIcon },
+//         { name: 'Stores', href: '/admin/stores', icon: StoreIcon },
+//         { name: 'Orders', href: '/admin/orders', icon: ShoppingBasketIcon  },
+//         { name: 'Approve Seller', href: '/admin/sellers', icon: ShieldCheckIcon },
+//         { name: 'Promos', href: '/admin/promos', icon: TicketPercentIcon },
+//         { name: 'Refunds', href: '/admin/refunds', icon: PiIcon },
+//         { name: "Notifications", href: "/admin/notifications", icon: PercentSquare },
+
+//         // NEW PAYOUTS LINK
+//         { name: 'Payouts', href: '/admin/payouts', icon: WalletIcon },
+//     ]
+
+//     return (
+//         <div className="inline-flex h-full flex-col gap-5 border-r border-slate-200 sm:min-w-60">
+//             <div className="flex flex-col gap-3 justify-center items-center pt-8 max-sm:hidden">
+//                 <Image className="w-14 h-14 rounded-full" src={assets.gs_logo} alt="" width={380} height={380} />
+//             </div>
+
+//             <div className="max-sm:mt-6">
+//                 {
+//                     sidebarLinks.map((link, index) => (
+//                         <Link
+//                             key={index}
+//                             href={link.href}
+//                             className={`relative flex items-center gap-3 text-slate-500 hover:bg-slate-50 p-2.5 transition ${pathname === link.href && 'bg-slate-100 sm:text-slate-600'}`}
+//                         >
+//                             <link.icon size={18} className="sm:ml-5" />
+//                             <p className="max-sm:hidden">{link.name}</p>
+//                             {pathname === link.href && (
+//                                 <span className="absolute bg-green-500 right-0 top-1.5 bottom-1.5 w-1 sm:w-1.5 rounded-l"></span>
+//                             )}
+//                         </Link>
+//                     ))
+//                 }
+//             </div>
+//         </div>
+//     )
+// }
+
+// export default AdminSidebar
