@@ -388,7 +388,7 @@ export default function Cart() {
         </p>
 
         <button
-          onClick={() => router.push("/products")}
+          onClick={() => router.push("/shop")}
           className="mt-8 inline-flex items-center rounded-full bg-gradient-to-r from-[#d8c3a5] via-[#a78bdb] to-[#7fb6ea] px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(167,139,219,0.18)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(127,182,234,0.22)]"
         >
           Continue Shopping

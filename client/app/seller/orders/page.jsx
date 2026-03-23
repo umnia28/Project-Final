@@ -1306,6 +1306,7 @@ export default function SellerOrdersPage() {
         seller_confirmed_at: row.seller_confirmed_at,
         seller_cancelled_at: row.seller_cancelled_at,
         cancel_reason: row.cancel_reason,
+        cancelled_by: row.cancelled_by,
         delivery_status: row.delivery_status,
       });
     }
@@ -1313,7 +1314,10 @@ export default function SellerOrdersPage() {
     return Array.from(map.values());
   }, [items]);
 
-  const sellerStatusStyle = (status) => {
+  const sellerStatusStyle = (status, cancelledBy) => {
+    if (cancelledBy) {
+      return { bg: "#ffe4e6", color: "#be123c", border: "#fecdd3" };
+    }
     if (status === "confirmed") {
       return { bg: "#dcfce7", color: "#047857", border: "#a7f3d0" };
     }
@@ -1347,6 +1351,15 @@ export default function SellerOrdersPage() {
       return { bg: "#ede9fe", color: "#6d28d9", border: "#c4b5fd" };
     }
     return { bg: "#f1f5f9", color: "#475569", border: "#e2e8f0" };
+  };
+
+  const sellerStatusLabel = (status, cancelledBy) => {
+    if (cancelledBy === "admin") return "cancelled by admin";
+    if (cancelledBy === "customer") return "cancelled by customer";
+    if (cancelledBy === "seller") return "cancelled by seller";
+    if (status === "confirmed") return "confirmed";
+    if (status === "cancelled") return "cancelled";
+    return status || "pending";
   };
 
   const totalItems = items.length;
@@ -1778,10 +1791,11 @@ export default function SellerOrdersPage() {
                     <div style={{ padding: "24px 24px 10px" }}>
                       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                         {o.lines.map((l) => {
-                          const sellerStyle = sellerStatusStyle(l.seller_status);
+                          const sellerStyle = sellerStatusStyle(l.seller_status, l.cancelled_by);
                           const deliveryStyle = deliveryStatusStyle(l.delivery_status);
                           const isBusy = processingId === l.order_item_id;
-                          const isPending = (l.seller_status || "pending") === "pending";
+                          const isCancelled = !!l.cancelled_by || l.seller_status === "cancelled";
+                          const isPending = (l.seller_status || "pending") === "pending" && !isCancelled;
                           return (
                             <div
                               key={l.order_item_id}
@@ -1842,6 +1856,24 @@ export default function SellerOrdersPage() {
                                     {l.seller_cancelled_at && (
                                       <span style={{ color: "#be123c" }}>
                                         Cancelled: {new Date(l.seller_cancelled_at).toLocaleString()}
+                                      </span>
+                                    )}
+
+                                    {l.cancelled_by === "admin" && (
+                                      <span style={{ color: "#be123c" }}>
+                                        Cancelled by admin
+                                      </span>
+                                    )}
+
+                                    {l.cancelled_by === "customer" && (
+                                      <span style={{ color: "#be123c" }}>
+                                        Cancelled by customer
+                                      </span>
+                                    )}
+
+                                    {l.cancelled_by === "seller" && (
+                                      <span style={{ color: "#be123c" }}>
+                                        Cancelled by seller
                                       </span>
                                     )}
 
@@ -1933,17 +1965,19 @@ export default function SellerOrdersPage() {
                                       color={sellerStyle.color}
                                       border={sellerStyle.border}
                                     >
-                                      {l.seller_status || "pending"}
+                                      {sellerStatusLabel(l.seller_status, l.cancelled_by)}
                                     </Badge>
 
-                                    <Badge
-                                      bg={deliveryStyle.bg}
-                                      color={deliveryStyle.color}
-                                      border={deliveryStyle.border}
-                                    >
-                                      <Truck size={13} />
-                                      {l.delivery_status || "not_ready"}
-                                    </Badge>
+                                    {!l.cancelled_by && (
+                                      <Badge
+                                        bg={deliveryStyle.bg}
+                                        color={deliveryStyle.color}
+                                        border={deliveryStyle.border}
+                                      >
+                                        <Truck size={13} />
+                                        {l.delivery_status || "not_ready"}
+                                      </Badge>
+                                    )}
                                   </div>
                                 </div>
 

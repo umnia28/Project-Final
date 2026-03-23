@@ -137,7 +137,7 @@ router.get("/", verifyToken, requireRole("seller"), async (req, res) => {
           WHERE os.order_id = o.order_id
           ORDER BY os.status_time DESC
           LIMIT 1
-        ) AS latest_order_status
+        ) AS latest_status
 
       FROM order_item oi
       JOIN product p ON p.product_id = oi.product_id

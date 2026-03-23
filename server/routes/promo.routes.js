@@ -7,6 +7,42 @@ const router = express.Router();
  * GET /api/promos/:id
  * Public promo lookup for checkout
  */
+
+router.get("/", async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `
+      SELECT
+        promo_id,
+        promo_name,
+        promo_status,
+        promo_discount,
+        promo_start_date,
+        promo_end_date
+      FROM promo
+      WHERE promo_status = 'active'
+        AND (promo_start_date IS NULL OR promo_start_date <= NOW())
+        AND (promo_end_date IS NULL OR promo_end_date >= NOW())
+      ORDER BY promo_start_date DESC NULLS LAST, promo_id DESC
+      `
+    );
+
+    res.json({
+      promos: rows.map((promo) => ({
+        promo_id: promo.promo_id,
+        code: String(promo.promo_id),
+        description: promo.promo_name,
+        discount: Number(promo.promo_discount),
+        promo_start_date: promo.promo_start_date,
+        promo_end_date: promo.promo_end_date,
+      })),
+    });
+  } catch (err) {
+    console.error("GET ACTIVE PROMOS ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 router.get("/:id", async (req, res) => {
   try {
     const promoId = Number(req.params.id);
@@ -62,5 +98,7 @@ router.get("/:id", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+
 
 export default router;

@@ -15,6 +15,18 @@ const statusBadgeClass = (status, isCancelled) => {
   return "bg-[#eee7fb] text-[#7a5db4] border-[#d9ccf4]";
 };
 
+const isCancelledItem = (item) =>
+  !!item.cancelled_by || item.delivery_status === "delivery_cancelled";
+
+const getItemNetAmount = (item) =>
+  Number(item.price || 0) * Number(item.qty || 0) - Number(item.discount_amount || 0);
+
+const getOrderActualAmount = (order) =>
+  (order.items || []).reduce((sum, item) => {
+    if (isCancelledItem(item)) return sum;
+    return sum + getItemNetAmount(item);
+  }, 0);
+
 export default function DeliverymanAssignedOrdersPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -128,9 +140,12 @@ export default function DeliverymanAssignedOrdersPage() {
                         Payment: <span className="font-medium">{order.payment_status}</span>
                       </p>
                       <p className="text-sm text-slate-600">
-                        Total:{" "}
+                        {String(order.payment_method || "").toLowerCase() === "cod"
+                          ? "Collectable"
+                          : "Actual Amount"}
+                        :{" "}
                         <span className="font-semibold">
-                          ৳ {Number(order.total_price || 0).toLocaleString()}
+                          ৳ {Number(getOrderActualAmount(order) || 0).toLocaleString()}
                         </span>
                       </p>
                     </div>
@@ -176,6 +191,9 @@ export default function DeliverymanAssignedOrdersPage() {
                               </p>
                               <p className="text-sm text-slate-500">
                                 Price: ৳ {Number(item.price || 0).toLocaleString()}
+                              </p>
+                              <p className="text-sm text-slate-500">
+                                After Discount: ৳ {Number(getItemNetAmount(item) || 0).toLocaleString()}
                               </p>
 
                               <div className="mt-3 flex flex-wrap items-center gap-2">

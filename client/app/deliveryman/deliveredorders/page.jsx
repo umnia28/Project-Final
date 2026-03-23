@@ -9,6 +9,14 @@ const API = "http://localhost:5000";
 const deliveredBadgeClass =
   "bg-emerald-100 text-emerald-700 border-emerald-200";
 
+const getItemNetAmount = (item) =>
+  Number(item.price || 0) * Number(item.qty || 0) - Number(item.discount_amount || 0);
+
+const getDeliveredOrderActualAmount = (order) =>
+  (order.deliveredItems || []).reduce((sum, item) => {
+    return sum + getItemNetAmount(item);
+  }, 0);
+
 export default function DeliverymanDeliveredOrdersPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -100,9 +108,12 @@ export default function DeliverymanDeliveredOrdersPage() {
                       </p>
 
                       <p className="text-sm text-slate-600">
-                        Total:{" "}
+                        {String(order.payment_method || "").toLowerCase() === "cod"
+                          ? "Collected Amount"
+                          : "Delivered Amount"}
+                        :{" "}
                         <span className="font-semibold">
-                          ৳ {Number(order.total_price || 0).toLocaleString()}
+                          ৳ {Number(getDeliveredOrderActualAmount(order) || 0).toLocaleString()}
                         </span>
                       </p>
 
@@ -151,6 +162,9 @@ export default function DeliverymanDeliveredOrdersPage() {
                           </p>
                           <p className="text-sm text-slate-500">
                             Price: ৳ {Number(item.price || 0).toLocaleString()}
+                          </p>
+                          <p className="text-sm text-slate-500">
+                            After Discount: ৳ {Number(getItemNetAmount(item) || 0).toLocaleString()}
                           </p>
 
                           <div className="mt-3 flex flex-wrap items-center gap-2">

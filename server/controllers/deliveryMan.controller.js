@@ -353,6 +353,8 @@ export const updateDeliveryOrderStatus = async (req, res) => {
   const { delivery_status } = req.body;
   const deliverymanId = req.user.user_id;
 
+  const client = await pool.connect();
+
   try {
     const allowedStatuses = ["out_for_delivery", "delivered"];
 
@@ -363,7 +365,9 @@ export const updateDeliveryOrderStatus = async (req, res) => {
       });
     }
 
-    const itemCheck = await pool.query(
+    await client.query("BEGIN");
+
+    const itemCheck = await client.query(
       `
       SELECT 
         oi.order_item_id,
@@ -374,11 +378,13 @@ export const updateDeliveryOrderStatus = async (req, res) => {
       FROM order_item oi
       JOIN "order" o ON o.order_id = oi.order_id
       WHERE oi.order_id = $1
+      FOR UPDATE
       `,
       [orderId]
     );
 
     if (itemCheck.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({
         success: false,
         message: "No order items found for this order",
@@ -392,6 +398,7 @@ export const updateDeliveryOrderStatus = async (req, res) => {
     );
 
     if (validItems.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(403).json({
         success: false,
         message: "No assigned active items found for this delivery man",
@@ -404,6 +411,7 @@ export const updateDeliveryOrderStatus = async (req, res) => {
       );
 
       if (hasInvalidStatus) {
+        await client.query("ROLLBACK");
         return res.status(400).json({
           success: false,
           message: "Only shipment_ready items can be marked out_for_delivery",
@@ -419,6 +427,7 @@ export const updateDeliveryOrderStatus = async (req, res) => {
       );
 
       if (hasInvalidStatus) {
+        await client.query("ROLLBACK");
         return res.status(400).json({
           success: false,
           message: "Only shipment_ready or out_for_delivery items can be marked delivered",
@@ -426,7 +435,7 @@ export const updateDeliveryOrderStatus = async (req, res) => {
       }
     }
 
-    await pool.query(
+    await client.query(
       `
       UPDATE order_item
       SET delivery_status = $1
@@ -436,15 +445,52 @@ export const updateDeliveryOrderStatus = async (req, res) => {
       [delivery_status, orderId]
     );
 
+    if (delivery_status === "delivered") {
+      await client.query(
+        `
+        UPDATE "order"
+        SET delivery_time = NOW()
+        WHERE order_id = $1
+        `,
+        [orderId]
+      );
+    }
+
+    const existingStatusRes = await client.query(
+      `
+      SELECT 1
+      FROM order_status
+      WHERE order_id = $1
+        AND status_type = $2
+      LIMIT 1
+      `,
+      [orderId, delivery_status]
+    );
+
+    if (existingStatusRes.rows.length === 0) {
+      await client.query(
+        `
+        INSERT INTO order_status (order_id, status_type, status_time, updated_by)
+        VALUES ($1, $2, NOW(), $3)
+        `,
+        [orderId, delivery_status, deliverymanId]
+      );
+    }
+
+    await client.query("COMMIT");
+
     return res.json({
       success: true,
       message: `Order marked as ${delivery_status}`,
     });
   } catch (error) {
+    await client.query("ROLLBACK");
     console.error("UPDATE DELIVERY ORDER STATUS ERROR:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to update delivery status",
     });
+  } finally {
+    client.release();
   }
 };

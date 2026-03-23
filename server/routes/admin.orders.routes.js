@@ -81,21 +81,23 @@ router.get(
 
       const itemsRes = await pool.query(
         `
-        SELECT
-          oi.order_item_id,
-          oi.order_id,
-          oi.product_id,
-          oi.qty,
-          oi.price,
-          oi.discount_amount,
-          oi.seller_status,
-          oi.delivery_status,
-          oi.cancelled_by,
-          p.product_name
-        FROM order_item oi
-        JOIN product p ON p.product_id = oi.product_id
-        ORDER BY oi.order_id DESC, oi.order_item_id ASC
-        `
+          SELECT
+            oi.order_item_id,
+            oi.order_id,
+            oi.product_id,
+            oi.qty,
+            oi.price,
+            oi.discount_amount,
+            oi.seller_status,
+            oi.delivery_status,
+            oi.cancelled_by,
+            oi.refund_status,
+            COALESCE(oi.refunded_amount, 0) AS refunded_amount,
+            p.product_name
+          FROM order_item oi
+          JOIN product p ON p.product_id = oi.product_id
+          ORDER BY oi.order_id DESC, oi.order_item_id ASC
+          `
       );
 
       const itemsByOrder = {};
@@ -106,10 +108,30 @@ router.get(
         itemsByOrder[item.order_id].push(item);
       }
 
-      const orders = ordersRes.rows.map((order) => ({
-        ...order,
-        items: itemsByOrder[order.order_id] || [],
-      }));
+      const orders = ordersRes.rows.map((order) => {
+        const items = itemsByOrder[order.order_id] || [];
+
+        const refund_amount = items.reduce((sum, item) => {
+          let lineRefund = Number(item.refunded_amount || 0);
+
+          if (
+            lineRefund === 0 &&
+            (item.seller_status === "cancelled" || item.refund_status === "refunded")
+          ) {
+            lineRefund =
+              Number(item.price || 0) * Number(item.qty || 0) -
+              Number(item.discount_amount || 0);
+          }
+
+          return sum + lineRefund;
+        }, 0);
+
+        return {
+          ...order,
+          refund_amount,
+          items,
+        };
+      });
 
       return res.json({ orders });
     } catch (err) {
@@ -304,7 +326,7 @@ router.patch(
 
       const statusToInsert =
         previousDeliveryManId &&
-        String(previousDeliveryManId) !== String(delivery_man_id)
+          String(previousDeliveryManId) !== String(delivery_man_id)
           ? "reassigned"
           : "assigned";
 
@@ -570,6 +592,7 @@ router.patch(
  */
 router.post("/:orderId/cancel", verifyToken, requireRole("admin"), async (req, res) => {
   const client = await pool.connect();
+
   try {
     const adminId = req.user.user_id;
     const orderId = Number(req.params.orderId);
@@ -581,6 +604,7 @@ router.post("/:orderId/cancel", verifyToken, requireRole("admin"), async (req, r
       `SELECT order_id, payment_status FROM "order" WHERE order_id=$1 FOR UPDATE`,
       [orderId]
     );
+
     if (o.rows.length === 0) {
       await client.query("ROLLBACK");
       return res.status(404).json({ message: "Order not found" });
@@ -590,6 +614,7 @@ router.post("/:orderId/cancel", verifyToken, requireRole("admin"), async (req, r
       `SELECT 1 FROM order_status WHERE order_id=$1 AND status_type='cancelled' LIMIT 1`,
       [orderId]
     );
+
     if (already.rowCount > 0) {
       await client.query("COMMIT");
       return res.json({ message: "Already cancelled", order_id: orderId });
@@ -598,6 +623,20 @@ router.post("/:orderId/cancel", verifyToken, requireRole("admin"), async (req, r
     await client.query(
       `UPDATE "order" SET reason_for_cancellation=$1 WHERE order_id=$2`,
       [reason, orderId]
+    );
+
+    // VERY IMPORTANT: update all non-cancelled order items
+    await client.query(
+      `
+      UPDATE order_item
+      SET
+        seller_status = 'cancelled',
+        delivery_status = 'cancelled',
+        cancelled_by = 'admin'
+      WHERE order_id = $1
+        AND COALESCE(seller_status, 'pending') <> 'cancelled'
+      `,
+      [orderId]
     );
 
     await client.query(
@@ -617,7 +656,6 @@ router.post("/:orderId/cancel", verifyToken, requireRole("admin"), async (req, r
     client.release();
   }
 });
-
 /**
  * POST /api/admin/orders/:orderId/refund
  * body: { reason? }

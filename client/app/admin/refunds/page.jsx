@@ -93,8 +93,12 @@ export default function AdminRefundsPage() {
       const paymentStatus = (o.payment_status || "").toLowerCase();
 
       const alreadyCancelled = latestStatus === "cancelled";
+
       const alreadyRefunded =
-        paymentStatus === "refunded" || latestStatus === "refunded";
+        paymentStatus === "refunded" ||
+        paymentStatus === "partially_refunded" ||
+        latestStatus === "refunded" ||
+        latestStatus === "partially_refunded";
 
       const canRefund = !alreadyRefunded && !alreadyCancelled;
       const canCancel = !alreadyCancelled && !alreadyRefunded;
@@ -196,11 +200,10 @@ export default function AdminRefundsPage() {
                         </span>
 
                         <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${
-                            o.paymentStatus === "refunded"
+                          className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${o.paymentStatus === "refunded"
                               ? "bg-[#eff6ff] text-sky-700"
                               : "bg-[#f5f3ff] text-violet-700"
-                          }`}
+                            }`}
                         >
                           {o.payment_status || "pending"}
                         </span>
@@ -250,11 +253,10 @@ export default function AdminRefundsPage() {
                             { loading: "Cancelling..." }
                           )
                         }
-                        className={`px-4 py-2.5 rounded-xl transition font-medium ${
-                          !o.canCancel
+                        className={`px-4 py-2.5 rounded-xl transition font-medium ${!o.canCancel
                             ? "bg-[#dbeafe] text-sky-400 cursor-not-allowed"
                             : "bg-gradient-to-r from-[#dbeafe] to-[#c4b5fd] text-slate-700 hover:opacity-90"
-                        }`}
+                          }`}
                       >
                         <span className="inline-flex items-center gap-2">
                           <CircleXIcon size={16} />
@@ -277,11 +279,10 @@ export default function AdminRefundsPage() {
                             { loading: "Refunding..." }
                           )
                         }
-                        className={`px-4 py-2.5 rounded-xl transition font-medium ${
-                          !o.canRefund
+                        className={`px-4 py-2.5 rounded-xl transition font-medium ${!o.canRefund
                             ? "bg-[#ede9fe] text-violet-300 cursor-not-allowed"
                             : "bg-gradient-to-r from-[#f5f3ff] to-[#f5f5dc] text-slate-700 hover:opacity-90"
-                        }`}
+                          }`}
                       >
                         <span className="inline-flex items-center gap-2">
                           <BadgeDollarSignIcon size={16} />

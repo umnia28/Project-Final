@@ -88,6 +88,8 @@ router.get("/preview/:store_id", verifyToken, requireRole("admin"), async (req, 
 });
 
 // CREATE PAYOUT FOR A STORE
+// This only creates the payout record first.
+// Actual money transfer is confirmed later using MARK PAYOUT AS PAID.
 router.post("/create", verifyToken, requireRole("admin"), async (req, res) => {
   const { store_id } = req.body;
 
@@ -148,7 +150,7 @@ router.post("/create", verifyToken, requireRole("admin"), async (req, res) => {
     }
 
     const totalAmount = itemsRes.rows.reduce(
-      (sum, item) => sum + Number(item.seller_earnings),
+      (sum, item) => sum + Number(item.seller_earnings || 0),
       0
     );
 
@@ -178,12 +180,13 @@ router.post("/create", verifyToken, requireRole("admin"), async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: "Payout created successfully",
+      message: "Payout created successfully. Status is pending until marked as paid.",
       payout_id,
       seller_id,
       store_id,
       totalAmount,
       items_count: itemsRes.rows.length,
+      payout_status: "pending",
     });
   } catch (error) {
     await client.query("ROLLBACK");
@@ -210,6 +213,25 @@ router.put("/:id/pay", verifyToken, requireRole("admin"), async (req, res) => {
   }
 
   try {
+    const existingRes = await pool.query(
+      `SELECT * FROM payout WHERE payout_id = $1`,
+      [id]
+    );
+
+    if (existingRes.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Payout not found",
+      });
+    }
+
+    if (existingRes.rows[0].payout_status === "paid") {
+      return res.status(400).json({
+        success: false,
+        message: "Payout is already marked as paid",
+      });
+    }
+
     const result = await pool.query(
       `
       UPDATE payout
@@ -222,13 +244,6 @@ router.put("/:id/pay", verifyToken, requireRole("admin"), async (req, res) => {
       `,
       [method, reference_no, id]
     );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Payout not found",
-      });
-    }
 
     return res.json({
       success: true,
