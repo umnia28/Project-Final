@@ -26,8 +26,14 @@ export default function StoreShop() {
     if (!clean) return "/placeholder.png"
 
     if (clean.startsWith("http://") || clean.startsWith("https://")) return clean
+
+    if (clean.startsWith("/uploads/")) return `${API}${clean}`
+
+    if (clean.startsWith("uploads/")) return `${API}/${clean}`
+
     if (clean.startsWith("/")) return `${API}${clean}`
-    return `${API}/${clean}`
+
+    return `${API}/uploads/${clean}`
   }
 
   const getProductImage = (product) => {
@@ -123,12 +129,9 @@ export default function StoreShop() {
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#fcfcfa,#f8fbff,#faf7ff)] px-4 py-8">
-
-      {/* STORE HEADER */}
       {storeInfo && (
         <div className="max-w-7xl mx-auto mt-6 rounded-3xl bg-gradient-to-r from-[#dbeafe] via-[#e9d5ff] to-[#f5f5dc] p-[2px] shadow-[0_14px_40px_rgba(180,160,255,0.15)]">
           <div className="rounded-3xl bg-white/85 backdrop-blur-md p-6 md:p-10 flex flex-col md:flex-row items-center gap-6">
-            
             <Image
               src={storeInfo.logo}
               alt={storeInfo.name}
@@ -161,7 +164,6 @@ export default function StoreShop() {
         </div>
       )}
 
-      {/* PRODUCTS */}
       <div className="max-w-7xl mx-auto mt-12 mb-32">
         <h1 className="text-2xl">
           Shop{" "}
