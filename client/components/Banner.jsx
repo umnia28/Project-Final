@@ -42,7 +42,7 @@ export default function Banner() {
 
           <span className="hidden items-center gap-1.5 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-semibold tracking-[0.08em] text-white backdrop-blur sm:flex">
             <Gift size={12} />
-            ETHNIC50
+            CA20
           </span>
         </div>
 

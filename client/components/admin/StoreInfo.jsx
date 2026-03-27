@@ -3,30 +3,47 @@
 import { Mail, Phone, Store, Calendar, Hash } from "lucide-react";
 
 const StoreInfo = ({ store }) => {
-  const sellerImage =
-    store.profile_img || "https://via.placeholder.com/100?text=Store";
+  const getImageUrl = (img) => {
+    if (!img) return "https://via.placeholder.com/100?text=Store";
 
-  const isActive = store.store_status === "active";
+    if (img.startsWith("http")) return img;
+
+    if (img.startsWith("/uploads")) {
+      return `http://localhost:5000${img}`;
+    }
+
+    if (img.startsWith("uploads")) {
+      return `http://localhost:5000/${img}`;
+    }
+
+    return `http://localhost:5000/uploads/${img}`;
+  };
+
+  const sellerImage = getImageUrl(store?.profile_img);
+  const isActive = store?.store_status === "active";
 
   return (
     <div className="flex-1 space-y-4 text-sm">
-
       {/* Store Logo */}
       <img
         src={sellerImage}
-        alt={store.store_name || "Store"}
+        alt={store?.store_name || "Store"}
         className="w-20 h-20 object-cover shadow rounded-full max-sm:mx-auto"
+        onError={(e) => {
+          e.currentTarget.src = "https://via.placeholder.com/100?text=Store";
+        }}
       />
 
       {/* Store Title */}
       <div className="flex flex-col sm:flex-row gap-3 items-center">
         <h3 className="text-xl font-semibold text-slate-800">
-          {store.store_name}
+          {store?.store_name || "Unnamed Store"}
         </h3>
 
-        <span className="text-sm text-slate-500">@{store.username}</span>
+        <span className="text-sm text-slate-500">
+          @{store?.username || "unknown"}
+        </span>
 
-        {/* Status Badge (THEMED) */}
         <span
           className={`text-xs font-semibold px-4 py-1 rounded-full ${
             isActive
@@ -34,72 +51,69 @@ const StoreInfo = ({ store }) => {
               : "bg-[#f5f3ff] text-violet-700"
           }`}
         >
-          {store.store_status}
+          {store?.store_status || "unknown"}
         </span>
       </div>
 
       {/* Store Details */}
       <div className="space-y-2 text-slate-600">
-
         <p className="flex items-center gap-2">
           <Store size={16} className="text-slate-400" />
-          Store Name: {store.store_name}
+          Store Name: {store?.store_name || "N/A"}
         </p>
 
         <p className="flex items-center gap-2">
           <Hash size={16} className="text-slate-400" />
-          Ref No: {store.ref_no || "N/A"}
+          Ref No: {store?.ref_no || "N/A"}
         </p>
 
         <p className="flex items-center gap-2">
           <Phone size={16} className="text-slate-400" />
-          {store.contact_no || "No contact number"}
+          {store?.contact_no || "No contact number"}
         </p>
 
         <p className="flex items-center gap-2">
           <Mail size={16} className="text-slate-400" />
-          {store.email || "No email"}
+          {store?.email || "No email"}
         </p>
 
         <p className="flex items-center gap-2">
           <Calendar size={16} className="text-slate-400" />
           Created on{" "}
           <span className="text-xs">
-            {store.created_at
+            {store?.created_at
               ? new Date(store.created_at).toLocaleDateString()
               : "N/A"}
           </span>
         </p>
-
       </div>
 
       {/* Seller Info */}
       <div className="pt-4 border-t border-[#ebe7f5]">
-
         <p className="text-slate-700 mb-2 font-medium">Seller Info</p>
 
         <div className="flex items-center gap-3 text-sm">
-
           <img
             src={sellerImage}
-            alt={store.full_name || store.username || "Seller"}
+            alt={store?.full_name || store?.username || "Seller"}
             className="w-10 h-10 rounded-full object-cover border border-[#ebe7f5]"
+            onError={(e) => {
+              e.currentTarget.src =
+                "https://via.placeholder.com/100?text=Store";
+            }}
           />
 
           <div>
             <p className="text-slate-700 font-medium">
-              {store.full_name || store.username || "N/A"}
+              {store?.full_name || store?.username || "N/A"}
             </p>
 
             <p className="text-slate-400 text-xs">
-              {store.email || "No email"}
+              {store?.email || "No email"}
             </p>
           </div>
-
         </div>
-
       </div>
-
     </div>
   );
 };

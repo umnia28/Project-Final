@@ -111,7 +111,7 @@ const Navbar = () => {
               href="/customer/myorders"
               className="rounded-full px-4 py-2 text-sm text-slate-700 transition hover:bg-[#f3e9ff]"
             >
-              My <b>Orders</b>
+              My<b>Orders</b>
             </Link>
           )}
         </div>

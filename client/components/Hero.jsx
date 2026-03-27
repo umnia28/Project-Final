@@ -165,10 +165,10 @@ const Hero = () => {
           <div className='flex items-center justify-between bg-purple-200 rounded-3xl p-6 px-8 group'>
             <div>
               <p className='text-3xl font-medium bg-gradient-to-r from-purple-300 via-purple-400 to-purple-500 bg-clip-text text-transparent max-w-40'>
-                Get 10% Off
+                Timeless & Affordable Beauty
               </p>
               <p className='flex items-center gap-1 mt-4'>
-                Good taste,better price
+                Art that elevates your home and your story
               </p>
             </div>
             <Image
@@ -182,10 +182,10 @@ const Hero = () => {
           <div className='flex items-center justify-between bg-blue-200 rounded-3xl p-6 px-8 group'>
             <div>
               <p className='text-3xl font-medium bg-gradient-to-r from-slate-800 to-blue-200 bg-clip-text text-transparent max-w-40'>
-                New arrivals
+                Refined Craft
               </p>
               <p className='flex items-center gap-1 mt-4'>
-                The latest,just landed
+                Created with detail,passion,and lasting quality
               </p>
             </div>
             <Image
