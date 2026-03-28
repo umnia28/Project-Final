@@ -129,10 +129,7 @@ export default function AdminDashboard() {
                 </div>
 
                 <h1 className="mt-5 text-3xl md:text-5xl font-bold tracking-tight text-slate-700">
-                  Admin{" "}
-                  <span className="bg-gradient-to-r from-[#b9d8f6] via-[#c9b0eb] to-[#e6d8c3] bg-clip-text text-transparent">
-                    Dashboard
-                  </span>
+                  Admin Dashboard{" "}
                 </h1>
 
                 <p className="mt-3 max-w-2xl text-slate-500 leading-7">
