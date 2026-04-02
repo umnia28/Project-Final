@@ -1,4 +1,3 @@
-
 "use client";
 
 import ProductDescription from "@/components/ProductDescription";
@@ -15,6 +14,84 @@ export default function Product() {
   const products = useSelector((state) => state.product.list || []);
   const [freshProduct, setFreshProduct] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedAttributes, setSelectedAttributes] = useState({});
+
+  const normalizeProduct = (p) => ({
+    ...p,
+    id: Number(p.id ?? p.product_id),
+    product_id: Number(p.product_id ?? p.id),
+
+    name: p.name ?? p.product_name ?? "Untitled Product",
+    product_name: p.product_name ?? p.name ?? "Untitled Product",
+
+    description: p.description ?? p.product_description ?? "",
+    product_description: p.product_description ?? p.description ?? "",
+
+    category: p.category ?? p.category_name ?? "Artwork",
+    category_name: p.category_name ?? p.category ?? "Artwork",
+
+    price: Number(p.price ?? 0),
+    discount: Number(p.discount ?? 0),
+    mrp:
+      p.mrp !== undefined && p.mrp !== null
+        ? Number(p.mrp)
+        : Number(p.price ?? 0) + Number(p.discount ?? 0),
+
+    product_count: Number(p.product_count ?? 0),
+    status: String(p.status ?? "active").toLowerCase(),
+
+    images: Array.isArray(p.images) ? p.images : [],
+
+    rating: Array.isArray(p.rating)
+      ? p.rating
+      : Array.isArray(p.reviews)
+      ? p.reviews
+      : [],
+
+    rating_avg:
+      p.rating_avg !== undefined && p.rating_avg !== null
+        ? Number(p.rating_avg)
+        : p.avg_rating !== undefined && p.avg_rating !== null
+        ? Number(p.avg_rating)
+        : 0,
+
+    rating_count:
+      p.rating_count !== undefined && p.rating_count !== null
+        ? Number(p.rating_count)
+        : p.review_count !== undefined && p.review_count !== null
+        ? Number(p.review_count)
+        : Array.isArray(p.rating)
+        ? p.rating.length
+        : Array.isArray(p.reviews)
+        ? p.reviews.length
+        : 0,
+
+    attributes: Array.isArray(p.attributes) ? p.attributes : [],
+  });
+
+  const getDefaultAttributes = (attrs = []) => {
+    const grouped = {};
+
+    attrs.forEach((attr) => {
+      if (!attr?.attribute_name || !attr?.attribute_value) return;
+
+      if (!grouped[attr.attribute_name]) {
+        grouped[attr.attribute_name] = [];
+      }
+      grouped[attr.attribute_name].push(attr);
+    });
+
+    const defaults = {};
+
+    Object.keys(grouped).forEach((name) => {
+      const base = grouped[name].find((x) => x.base_spec === true);
+      defaults[name] = base
+        ? base.attribute_value
+        : grouped[name][0]?.attribute_value;
+    });
+
+    return defaults;
+  };
 
   const reduxProduct = useMemo(() => {
     const found = products.find(
@@ -22,114 +99,23 @@ export default function Product() {
     );
 
     if (!found) return null;
-
-    return {
-      ...found,
-      id: Number(found.id ?? found.product_id),
-      product_id: Number(found.product_id ?? found.id),
-
-      name: found.name ?? found.product_name ?? "Untitled Product",
-      product_name: found.product_name ?? found.name ?? "Untitled Product",
-
-      description: found.description ?? found.product_description ?? "",
-      product_description: found.product_description ?? found.description ?? "",
-
-      category: found.category ?? found.category_name ?? "Artwork",
-      category_name: found.category_name ?? found.category ?? "Artwork",
-
-      price: Number(found.price ?? 0),
-      discount: Number(found.discount ?? 0),
-      mrp:
-        found.mrp !== undefined && found.mrp !== null
-          ? Number(found.mrp)
-          : Number(found.price ?? 0) + Number(found.discount ?? 0),
-
-      product_count: Number(found.product_count ?? 0),
-      status: String(found.status ?? "active").toLowerCase(),
-
-      images: Array.isArray(found.images) ? found.images : [],
-
-      rating: Array.isArray(found.rating)
-        ? found.rating
-        : Array.isArray(found.reviews)
-        ? found.reviews
-        : [],
-      rating_avg:
-        found.rating_avg !== undefined && found.rating_avg !== null
-          ? Number(found.rating_avg)
-          : found.avg_rating !== undefined && found.avg_rating !== null
-          ? Number(found.avg_rating)
-          : 0,
-      rating_count:
-        found.rating_count !== undefined && found.rating_count !== null
-          ? Number(found.rating_count)
-          : found.review_count !== undefined && found.review_count !== null
-          ? Number(found.review_count)
-          : Array.isArray(found.rating)
-          ? found.rating.length
-          : Array.isArray(found.reviews)
-          ? found.reviews.length
-          : 0,
-    };
+    return normalizeProduct(found);
   }, [products, productId]);
 
   const fetchFreshProduct = async () => {
     try {
       setLoading(true);
+
       const res = await axios.get(`${API}/api/products/${productId}`);
       const p = res.data.product || res.data;
 
-      setFreshProduct({
-        ...p,
-        id: Number(p.id ?? p.product_id),
-        product_id: Number(p.product_id ?? p.id),
-
-        name: p.name ?? p.product_name ?? "Untitled Product",
-        product_name: p.product_name ?? p.name ?? "Untitled Product",
-
-        description: p.description ?? p.product_description ?? "",
-        product_description: p.product_description ?? p.description ?? "",
-
-        category: p.category ?? p.category_name ?? "Artwork",
-        category_name: p.category_name ?? p.category ?? "Artwork",
-
-        price: Number(p.price ?? 0),
-        discount: Number(p.discount ?? 0),
-        mrp:
-          p.mrp !== undefined && p.mrp !== null
-            ? Number(p.mrp)
-            : Number(p.price ?? 0) + Number(p.discount ?? 0),
-
-        product_count: Number(p.product_count ?? 0),
-        status: String(p.status ?? "active").toLowerCase(),
-
-        images: Array.isArray(p.images) ? p.images : [],
-
-        rating: Array.isArray(p.rating)
-          ? p.rating
-          : Array.isArray(p.reviews)
-          ? p.reviews
-          : [],
-        rating_avg:
-          p.rating_avg !== undefined && p.rating_avg !== null
-            ? Number(p.rating_avg)
-            : p.avg_rating !== undefined && p.avg_rating !== null
-            ? Number(p.avg_rating)
-            : 0,
-        rating_count:
-          p.rating_count !== undefined && p.rating_count !== null
-            ? Number(p.rating_count)
-            : p.review_count !== undefined && p.review_count !== null
-            ? Number(p.review_count)
-            : Array.isArray(p.rating)
-            ? p.rating.length
-            : Array.isArray(p.reviews)
-            ? p.reviews.length
-            : 0,
-      });
+      const normalized = normalizeProduct(p);
+      setFreshProduct(normalized);
+      setSelectedAttributes(getDefaultAttributes(normalized.attributes));
     } catch (err) {
       console.error("Single product fetch error:", err.response?.data || err.message);
       setFreshProduct(null);
+      setSelectedAttributes({});
     } finally {
       setLoading(false);
     }
@@ -141,6 +127,12 @@ export default function Product() {
   }, [productId]);
 
   const product = freshProduct || reduxProduct;
+
+  useEffect(() => {
+    if (product?.attributes?.length && Object.keys(selectedAttributes).length === 0) {
+      setSelectedAttributes(getDefaultAttributes(product.attributes));
+    }
+  }, [product]);
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -171,8 +163,14 @@ export default function Product() {
             </div>
           ) : product ? (
             <div className="rounded-3xl border border-white/50 bg-white/80 p-6 shadow-xl backdrop-blur-md md:p-10">
-              <ProductDetails product={product} />
+              <ProductDetails
+                product={product}
+                selectedAttributes={selectedAttributes}
+                setSelectedAttributes={setSelectedAttributes}
+              />
+
               <div className="my-12 border-t border-pink-100" />
+
               <ProductDescription
                 product={product}
                 onReviewAdded={fetchFreshProduct}

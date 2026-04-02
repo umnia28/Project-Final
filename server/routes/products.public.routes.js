@@ -176,4 +176,77 @@ router.get("/", async (req, res) => {
   }
 });
 
+
+// GET SINGLE PRODUCT WITH VARIANTS
+router.get("/:id", async (req, res) => {
+  try {
+    const productId = Number(req.params.id);
+
+    if (!Number.isInteger(productId) || productId <= 0) {
+      return res.status(400).json({ message: "Invalid product id" });
+    }
+
+    const { rows } = await pool.query(
+      `
+      SELECT
+        p.product_id,
+        p.product_name,
+        p.price,
+        p.discount,
+        p.product_description,
+        p.product_count,
+        p.status,
+        p.visibility_status,
+
+        st.store_id,
+        st.store_name,
+
+        COALESCE(
+          (
+            SELECT json_agg(pi.image_url)
+            FROM product_image pi
+            WHERE pi.product_id = p.product_id
+          ),
+          '[]'
+        ) AS images,
+
+        COALESCE(
+          (
+            SELECT json_agg(
+              json_build_object(
+                'attribute_name', pa.attribute_name,
+                'attribute_value', pa.attribute_value,
+                'new_price', pa.new_price,
+                'stock', pa.stock,
+                'base_spec', pa.base_spec
+              )
+            )
+            FROM product_attributes pa
+            WHERE pa.product_id = p.product_id
+          ),
+          '[]'
+        ) AS attributes
+
+      FROM product p
+      JOIN store st ON st.store_id = p.store_id
+
+      WHERE p.product_id = $1
+        AND p.status = 'active'
+        AND p.visibility_status = TRUE
+      `,
+      [productId]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    res.json({ product: rows[0] });
+
+  } catch (err) {
+    console.error("GET PRODUCT DETAILS ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 export default router;

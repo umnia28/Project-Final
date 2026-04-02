@@ -1,29 +1,28 @@
 'use client'
-import { addToCart, removeFromCart } from "@/lib/features/cart/cartSlice";
+import { addToCart, removeFromCart, makeCartKey } from "@/lib/features/cart/cartSlice";
 import { useDispatch, useSelector } from "react-redux";
 
-const Counter = ({ productId, maxQty = Infinity }) => {
+const Counter = ({ productId, selectedAttributes = {}, maxQty = Infinity }) => {
   const { cartItems } = useSelector((state) => state.cart);
   const dispatch = useDispatch();
 
-  const currentQty = Number(cartItems?.[productId] || 0);
+  const cartKey = makeCartKey(productId, selectedAttributes);
+  const currentQty = Number(cartItems?.[cartKey]?.quantity || 0);
   const limit = Number(maxQty);
 
   const addToCartHandler = () => {
     if (currentQty >= limit) return;
-    dispatch(addToCart({ productId }));
+    dispatch(addToCart({ productId, selectedAttributes }));
   };
 
   const removeFromCartHandler = () => {
-    dispatch(removeFromCart({ productId }));
+    dispatch(removeFromCart({ productId, selectedAttributes }));
   };
 
   const isMaxReached = currentQty >= limit;
 
   return (
     <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-2 py-1.5 text-slate-700 shadow-sm backdrop-blur-md">
-
-      {/* Minus */}
       <button
         onClick={removeFromCartHandler}
         className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-[#f3e8d8] to-[#e6dcf5] text-lg font-semibold text-slate-700 transition-all duration-200 hover:scale-105 hover:shadow-sm active:scale-95"
@@ -31,12 +30,10 @@ const Counter = ({ productId, maxQty = Infinity }) => {
         −
       </button>
 
-      {/* Quantity */}
       <p className="min-w-[28px] text-center text-sm font-semibold text-slate-800">
         {currentQty}
       </p>
 
-      {/* Plus */}
       <button
         onClick={addToCartHandler}
         disabled={isMaxReached}
@@ -48,7 +45,6 @@ const Counter = ({ productId, maxQty = Infinity }) => {
       >
         +
       </button>
-
     </div>
   );
 };

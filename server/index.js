@@ -32,6 +32,7 @@ import newsletterRoutes from "./routes/newsletter.routes.js";
 import reviewRoutes from "./routes/review.routes.js";
 import productQaRoutes from "./routes/product.qa.routes.js";
 import sellerSalesReportRoutes from "./routes/seller.salesreport.routes.js";
+import noticeboardRoutes from "./routes/noticeboard.routes.js";
 
 
 
@@ -82,6 +83,7 @@ app.use("/api/public/stores", publicStoreRoutes);
 app.use("/api/newsletter", newsletterRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/product-qa", productQaRoutes);
+app.use("/api/noticeboard", noticeboardRoutes);
 
 
 

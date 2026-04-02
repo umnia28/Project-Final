@@ -1,6 +1,6 @@
 "use client";
 
-import { addToCart } from "@/lib/features/cart/cartSlice";
+import { addToCart, makeCartKey } from "@/lib/features/cart/cartSlice";
 import {
   StarIcon,
   TagIcon,
@@ -86,7 +86,11 @@ const getNormalizedRatingCount = (product) => {
   return getRatingArray(product).length;
 };
 
-const ProductDetails = ({ product }) => {
+const ProductDetails = ({
+  product,
+  selectedAttributes = {},
+  setSelectedAttributes = () => {},
+}) => {
   const router = useRouter();
   const dispatch = useDispatch();
   const cart = useSelector((state) => state.cart.cartItems || {});
@@ -117,6 +121,7 @@ const ProductDetails = ({ product }) => {
       product_count: Number(product.product_count ?? 0),
       status: String(product.status ?? "active").toLowerCase(),
       images: Array.isArray(product.images) ? product.images : [],
+      attributes: Array.isArray(product.attributes) ? product.attributes : [],
       rating: ratingArray,
       rating_avg: Number.isNaN(normalizedAvg) ? 0 : normalizedAvg,
       rating_count: Number.isNaN(normalizedCount) ? 0 : normalizedCount,
@@ -140,6 +145,38 @@ const ProductDetails = ({ product }) => {
     return valid.length ? valid : [FALLBACK_IMG];
   }, [normalized]);
 
+  const groupedAttributes = useMemo(() => {
+    const grouped = {};
+    (normalized?.attributes || []).forEach((attr) => {
+      if (!attr?.attribute_name || !attr?.attribute_value) return;
+      if (!grouped[attr.attribute_name]) grouped[attr.attribute_name] = [];
+      grouped[attr.attribute_name].push(attr);
+    });
+    return grouped;
+  }, [normalized]);
+
+  const matchedVariantRows = useMemo(() => {
+    return (normalized?.attributes || []).filter(
+      (a) => selectedAttributes?.[a.attribute_name] === a.attribute_value
+    );
+  }, [normalized, selectedAttributes]);
+
+  const matchedVariantWithPrice = useMemo(() => {
+    return matchedVariantRows.find(
+      (a) => a.new_price !== null && a.new_price !== undefined
+    );
+  }, [matchedVariantRows]);
+
+  const displayPrice = matchedVariantWithPrice?.new_price ?? normalized?.price ?? 0;
+
+  const variantStock = useMemo(() => {
+    if (matchedVariantRows.length === 0) {
+      return Number(normalized?.product_count || 0);
+    }
+
+    return matchedVariantRows.reduce((sum, a) => sum + Number(a.stock || 0), 0);
+  }, [normalized, matchedVariantRows]);
+
   const [mainImage, setMainImage] = useState(images[0] ?? FALLBACK_IMG);
 
   useEffect(() => {
@@ -152,19 +189,36 @@ const ProductDetails = ({ product }) => {
 
   const mainSrc = toPublicImageUrl(mainImage, FALLBACK_IMG);
 
-  const stock = Number(normalized?.product_count ?? 0);
+  const stock = variantStock;
   const isOutOfStock = stock <= 0 || normalized?.status !== "active";
 
+  const displayMrp =
+    normalized?.mrp && normalized.mrp > displayPrice
+      ? normalized.mrp
+      : null;
+
   const discountPercent =
-    normalized?.mrp && normalized.mrp > normalized.price
-      ? Math.round(
-          ((normalized.mrp - normalized.price) / normalized.mrp) * 100
-        )
+    displayMrp && displayMrp > displayPrice
+      ? Math.round(((displayMrp - displayPrice) / displayMrp) * 100)
       : 0;
+
+  const cartKey = useMemo(() => {
+    if (!productId) return null;
+    return makeCartKey(productId, selectedAttributes || {});
+  }, [productId, selectedAttributes]);
+
+  const cartEntry = cartKey ? cart?.[cartKey] : null;
+  const isInCart = Boolean(cartEntry);
 
   const addToCartHandler = () => {
     if (!productId || isOutOfStock) return;
-    dispatch(addToCart({ productId }));
+
+    dispatch(
+      addToCart({
+        productId,
+        selectedAttributes,
+      })
+    );
   };
 
   if (!normalized) return null;
@@ -305,13 +359,13 @@ const ProductDetails = ({ product }) => {
             <div className="flex flex-wrap items-end gap-3">
               <p className="font-display text-3xl font-semibold text-slate-800">
                 {currency}
-                {normalized.price}
+                {Number(displayPrice).toLocaleString()}
               </p>
 
-              {normalized.mrp && normalized.mrp > normalized.price ? (
+              {displayMrp ? (
                 <p className="text-lg text-slate-400 line-through">
                   {currency}
-                  {normalized.mrp}
+                  {Number(displayMrp).toLocaleString()}
                 </p>
               ) : null}
             </div>
@@ -328,6 +382,45 @@ const ProductDetails = ({ product }) => {
               </div>
             )}
           </div>
+
+          {Object.keys(groupedAttributes).length > 0 && (
+            <div className="relative mt-6 space-y-4">
+              {Object.keys(groupedAttributes).map((name) => (
+                <div key={name}>
+                  <p className="mb-2 text-sm font-semibold text-slate-700">
+                    {name}
+                  </p>
+
+                  <div className="flex flex-wrap gap-2">
+                    {groupedAttributes[name].map((option) => {
+                      const active =
+                        selectedAttributes?.[name] === option.attribute_value;
+
+                      return (
+                        <button
+                          key={`${name}-${option.attribute_value}`}
+                          type="button"
+                          onClick={() =>
+                            setSelectedAttributes((prev) => ({
+                              ...prev,
+                              [name]: option.attribute_value,
+                            }))
+                          }
+                          className={`rounded-full border px-4 py-1.5 text-sm transition ${
+                            active
+                              ? "border-black bg-black text-white"
+                              : "border-gray-300 bg-white text-gray-700"
+                          }`}
+                        >
+                          {option.attribute_value}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="relative mt-6">
             {isOutOfStock ? (
@@ -355,19 +448,23 @@ const ProductDetails = ({ product }) => {
           ) : null}
 
           <div className="relative mt-10 flex flex-wrap items-end gap-5">
-            {!isOutOfStock && productId && cart?.[productId] ? (
+            {!isOutOfStock && productId && isInCart ? (
               <div className="flex flex-col gap-3">
                 <p className="text-sm font-semibold uppercase tracking-[0.15em] text-slate-500">
                   Quantity
                 </p>
-                <Counter productId={productId} maxQty={stock} />
+                <Counter
+                  productId={productId}
+                  selectedAttributes={selectedAttributes}
+                  maxQty={stock}
+                />
               </div>
             ) : null}
 
             <button
               onClick={() => {
                 if (isOutOfStock) return;
-                !cart?.[productId] ? addToCartHandler() : router.push("/cart");
+                !isInCart ? addToCartHandler() : router.push("/cart");
               }}
               disabled={isOutOfStock}
               className={`group inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-sm font-semibold tracking-wide transition-all duration-300 ${
@@ -379,7 +476,7 @@ const ProductDetails = ({ product }) => {
               <ShoppingBag className="h-4 w-4 transition-transform duration-300 group-hover:scale-110" />
               {isOutOfStock
                 ? "Out of Stock"
-                : !cart?.[productId]
+                : !isInCart
                 ? "Add to Cart"
                 : "View Cart"}
             </button>
@@ -436,7 +533,6 @@ const ProductDetails = ({ product }) => {
 };
 
 export default ProductDetails;
-
 
 // "use client";
 

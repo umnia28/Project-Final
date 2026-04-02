@@ -24,6 +24,7 @@ router.post("/create", verifyToken, async (req, res) => {
 
     for (const item of items) {
       const qty = Number(item.quantity);
+      const selectedAttributes = item.selected_attributes || {};
 
       if (!item.product_id || qty <= 0) {
         throw new Error(`Invalid quantity or product for product_id ${item.product_id}`);
@@ -44,12 +45,41 @@ router.post("/create", verifyToken, async (req, res) => {
       }
 
       const product = productRes.rows[0];
-      const price = Number(product.price);
-      const stock = Number(product.product_count);
-      const status = product.status;
 
-      if (status !== "active") {
-        throw new Error(`Product ${item.product_id} is not available for ordering`);
+      let price = Number(product.price);
+      let stock = Number(product.product_count);
+
+      // 🔥 VARIANT CHECK
+      if (Object.keys(selectedAttributes).length > 0) {
+        for (const [name, value] of Object.entries(selectedAttributes)) {
+          const variantRes = await client.query(
+            `
+            SELECT stock, new_price
+            FROM product_attributes
+            WHERE product_id = $1
+              AND attribute_name = $2
+              AND attribute_value = $3
+            FOR UPDATE
+            `,
+            [item.product_id, name, value]
+          );
+
+          if (variantRes.rows.length === 0) {
+            throw new Error(`Variant not found: ${name} = ${value}`);
+          }
+
+          const variant = variantRes.rows[0];
+
+          stock = Number(variant.stock);
+
+          if (variant.new_price !== null) {
+            price = Number(variant.new_price);
+          }
+        }
+      }
+
+      if (product.status !== "active") {
+        throw new Error(`Product ${item.product_id} is not available`);
       }
 
       if (stock <= 0) {
@@ -57,7 +87,7 @@ router.post("/create", verifyToken, async (req, res) => {
       }
 
       if (qty > stock) {
-        throw new Error(`Only ${stock} item(s) available for product ${item.product_id}`);
+        throw new Error(`Only ${stock} item(s) available`);
       }
 
       const itemSubtotal = price * qty;
@@ -68,6 +98,7 @@ router.post("/create", verifyToken, async (req, res) => {
         qty,
         price,
         itemSubtotal,
+        selectedAttributes,
       });
     }
 
@@ -85,13 +116,7 @@ router.post("/create", verifyToken, async (req, res) => {
     if (promo_id) {
       const promoRes = await client.query(
         `
-        SELECT
-          promo_id,
-          promo_name,
-          promo_status,
-          promo_discount,
-          promo_start_date,
-          promo_end_date
+        SELECT *
         FROM promo
         WHERE promo_id = $1
         `,
@@ -105,22 +130,16 @@ router.post("/create", verifyToken, async (req, res) => {
       const promo = promoRes.rows[0];
       const now = new Date();
 
-      if (promo.promo_status !== "active") {
-        throw new Error("Promo is not active");
-      }
+      if (promo.promo_status !== "active") throw new Error("Promo not active");
+      if (promo.promo_start_date && new Date(promo.promo_start_date) > now)
+        throw new Error("Promo not started");
+      if (promo.promo_end_date && new Date(promo.promo_end_date) < now)
+        throw new Error("Promo expired");
 
-      if (promo.promo_start_date && new Date(promo.promo_start_date) > now) {
-        throw new Error("Promo has not started yet");
-      }
+      const percent = Number(promo.promo_discount);
 
-      if (promo.promo_end_date && new Date(promo.promo_end_date) < now) {
-        throw new Error("Promo has expired");
-      }
-
-      const promoPercent = Number(promo.promo_discount);
-
-      if (promoPercent > 0) {
-        totalDiscount = Math.round((subtotal * promoPercent) / 100);
+      if (percent > 0) {
+        totalDiscount = Math.round((subtotal * percent) / 100);
         if (totalDiscount > subtotal) totalDiscount = subtotal;
         appliedPromoId = promo.promo_id;
       }
@@ -176,6 +195,7 @@ router.post("/create", verifyToken, async (req, res) => {
 
       const sellerEarnings = item.itemSubtotal - itemDiscount;
 
+      // ✅ INSERT ORDER ITEM WITH VARIANT
       await client.query(
         `
         INSERT INTO order_item (
@@ -184,9 +204,10 @@ router.post("/create", verifyToken, async (req, res) => {
           qty,
           price,
           discount_amount,
-          seller_earnings
+          seller_earnings,
+          selected_attributes
         )
-        VALUES ($1, $2, $3, $4, $5, $6)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         `,
         [
           orderId,
@@ -195,17 +216,35 @@ router.post("/create", verifyToken, async (req, res) => {
           item.price,
           itemDiscount,
           sellerEarnings,
+          JSON.stringify(item.selectedAttributes || {}),
         ]
       );
 
-      await client.query(
-        `
-        UPDATE product
-        SET product_count = product_count - $1
-        WHERE product_id = $2
-        `,
-        [item.qty, item.product_id]
-      );
+      // 🔥 STOCK UPDATE
+      if (Object.keys(item.selectedAttributes).length > 0) {
+        for (const [name, value] of Object.entries(item.selectedAttributes)) {
+          await client.query(
+            `
+            UPDATE product_attributes
+            SET stock = stock - $1,
+                sold = sold + $1
+            WHERE product_id = $2
+              AND attribute_name = $3
+              AND attribute_value = $4
+            `,
+            [item.qty, item.product_id, name, value]
+          );
+        }
+      } else {
+        await client.query(
+          `
+          UPDATE product
+          SET product_count = product_count - $1
+          WHERE product_id = $2
+          `,
+          [item.qty, item.product_id]
+        );
+      }
     }
 
     await client.query(
@@ -231,6 +270,7 @@ router.post("/create", verifyToken, async (req, res) => {
       discount_amount: totalDiscount,
       total_price: finalTotal,
     });
+
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("ORDER CREATE ERROR:", err);
