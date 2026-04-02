@@ -13,6 +13,7 @@ export const getCustomerNotifications = async (req, res) => {
       SELECT
         notification_id,
         notification_description,
+        product_id,
         seen_status,
         time_added
       FROM notification
@@ -25,6 +26,31 @@ export const getCustomerNotifications = async (req, res) => {
     return res.json({ notifications: rows });
   } catch (err) {
     console.error("GET CUSTOMER NOTIFICATIONS ERROR:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* =========================
+   GET CUSTOMER UNREAD COUNT
+   GET /api/customer/notifications/unread-count
+========================= */
+export const getCustomerUnreadNotificationCount = async (req, res) => {
+  try {
+    const customerId = req.user.user_id;
+
+    const { rows } = await pool.query(
+      `
+      SELECT COUNT(*)::int AS unread_count
+      FROM notification
+      WHERE user_id = $1
+        AND seen_status = FALSE
+      `,
+      [customerId]
+    );
+
+    return res.json({ unread_count: rows[0].unread_count });
+  } catch (err) {
+    console.error("GET CUSTOMER UNREAD NOTIFICATION COUNT ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -47,6 +73,7 @@ export const markCustomerNotificationSeen = async (req, res) => {
       RETURNING
         notification_id,
         notification_description,
+        product_id,
         seen_status,
         time_added
       `,

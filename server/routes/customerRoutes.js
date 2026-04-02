@@ -18,20 +18,18 @@ import {
 import {
   getCustomerNotifications,
   markCustomerNotificationSeen,
+  getCustomerUnreadNotificationCount,
 } from "../controllers/customer.notifications.controller.js";
-
-
 
 const router = express.Router();
 
-// all customer routes require authenticated customer
 router.use(verifyToken, requireRole("customer"));
 
 router.get("/dashboard", getCustomerDashboard);
 router.get("/orders", getCustomerOrders);
 
-// no need to repeat verifyToken + requireRole here because router.use already does it
 router.get("/notifications", getCustomerNotifications);
+router.get("/notifications/unread-count", getCustomerUnreadNotificationCount);
 router.patch("/notifications/:id/seen", markCustomerNotificationSeen);
 
 router.get("/profile", getCustomerProfile);

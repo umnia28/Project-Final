@@ -31,6 +31,7 @@ import publicStoreRoutes from "./routes/publicStore.routes.js"
 import newsletterRoutes from "./routes/newsletter.routes.js";
 import reviewRoutes from "./routes/review.routes.js";
 import productQaRoutes from "./routes/product.qa.routes.js";
+import sellerSalesReportRoutes from "./routes/seller.salesreport.routes.js";
 
 
 
@@ -68,11 +69,11 @@ app.use("/api/admin/sellers", adminSellersRoutes);
 app.use("/api/seller/products", sellerProductsRoutes);
 app.use("/api/admin/promos", adminPromosRoutes);
 app.use("/api/seller", sellerStoreRoutes);
+app.use("/api/seller", sellerSalesReportRoutes);
 app.use("/api/orders", ordersRoutes);
 app.use("/api/public/products", publicProductsRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/promos", promoRoutes);
-
 app.use("/api/customer", customerRoutes);
 app.use("/api/deliveryman", deliveryManRoutes);
 app.use("/api/contact", contactRoutes);

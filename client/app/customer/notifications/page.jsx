@@ -110,52 +110,87 @@ export default function CustomerNotificationsPage() {
   );
 }
   */
- "use client";
+"use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import axios from "axios";
-import { Bell, Sparkles, Clock3, CheckCircle2, ArrowUpRight } from "lucide-react";
+import {
+  Bell,
+  Sparkles,
+  Clock3,
+  CheckCircle2,
+  ArrowUpRight,
+} from "lucide-react";
 
 export default function CustomerNotificationsPage() {
+  const router = useRouter();
+
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const getAuthConfig = () => {
+    const token = localStorage.getItem("token");
+    return {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      withCredentials: true,
+    };
+  };
 
   const fetchNotifications = async () => {
     try {
-      const token = localStorage.getItem("token");
-
-      const res = await axios.get("http://localhost:5000/api/customer/notifications", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        withCredentials: true,
-      });
+      const res = await axios.get(
+        "http://localhost:5000/api/customer/notifications",
+        getAuthConfig()
+      );
 
       setNotifications(res.data.notifications || []);
     } catch (err) {
       console.error("Customer notifications fetch error:", err);
+    }
+  };
+
+  const fetchUnreadCount = async () => {
+    try {
+      const res = await axios.get(
+        "http://localhost:5000/api/customer/notifications/unread-count",
+        getAuthConfig()
+      );
+
+      setUnreadCount(res.data.unread_count || 0);
+    } catch (err) {
+      console.error("Customer unread count fetch error:", err);
+    }
+  };
+
+  const fetchAll = async () => {
+    try {
+      setLoading(true);
+      await Promise.all([fetchNotifications(), fetchUnreadCount()]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchNotifications();
+    fetchAll();
   }, []);
 
   const markAsSeen = async (notificationId) => {
     try {
-      const token = localStorage.getItem("token");
+      const target = notifications.find(
+        (item) => item.notification_id === notificationId
+      );
+
+      if (!target || target.seen_status) return;
 
       await axios.patch(
         `http://localhost:5000/api/customer/notifications/${notificationId}/seen`,
         {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          withCredentials: true,
-        }
+        getAuthConfig()
       );
 
       setNotifications((prev) =>
@@ -165,8 +200,20 @@ export default function CustomerNotificationsPage() {
             : item
         )
       );
+
+      setUnreadCount((prev) => Math.max(prev - 1, 0));
     } catch (err) {
       console.error("Mark customer notification seen error:", err);
+    }
+  };
+
+  const handleNotificationClick = async (notification) => {
+    if (!notification.seen_status) {
+      await markAsSeen(notification.notification_id);
+    }
+
+    if (notification.product_id) {
+      router.push(`/product/${notification.product_id}`);
     }
   };
 
@@ -227,7 +274,6 @@ export default function CustomerNotificationsPage() {
       }}
     >
       <div className="max-w-5xl mx-auto">
-        {/* Header */}
         <div
           className="mb-8 rounded-[34px] p-8 relative overflow-hidden"
           style={{
@@ -238,21 +284,6 @@ export default function CustomerNotificationsPage() {
             backdropFilter: "blur(20px)",
           }}
         >
-          <div
-            className="absolute -top-10 -right-10 w-44 h-44 rounded-full pointer-events-none"
-            style={{
-              background:
-                "radial-gradient(circle, rgba(236,72,153,0.14), transparent 70%)",
-            }}
-          />
-          <div
-            className="absolute -bottom-12 -left-10 w-52 h-52 rounded-full pointer-events-none"
-            style={{
-              background:
-                "radial-gradient(circle, rgba(168,85,247,0.12), transparent 70%)",
-            }}
-          />
-
           <div className="relative z-[1] flex flex-col xl:flex-row xl:items-end xl:justify-between gap-6">
             <div className="max-w-3xl">
               <div
@@ -341,14 +372,13 @@ export default function CustomerNotificationsPage() {
                   className="m-0 text-[30px] font-semibold leading-none"
                   style={{ color: "#18181b", fontFamily: "Georgia, serif" }}
                 >
-                  {notifications.filter((item) => !item.seen_status).length}
+                  {unreadCount}
                 </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Notifications */}
         {notifications.length === 0 ? (
           <div
             className="rounded-[32px] px-10 py-14 text-center"
@@ -383,15 +413,12 @@ export default function CustomerNotificationsPage() {
           <div className="space-y-5">
             {notifications.map((notification) => {
               const isSeen = notification.seen_status;
+              const isProductNotification = Boolean(notification.product_id);
 
               return (
                 <div
                   key={notification.notification_id}
-                  onClick={() => {
-                    if (!notification.seen_status) {
-                      markAsSeen(notification.notification_id);
-                    }
-                  }}
+                  onClick={() => handleNotificationClick(notification)}
                   className="rounded-[28px] p-5 md:p-6 cursor-pointer transition-all duration-300 hover:-translate-y-[2px]"
                   style={{
                     background: isSeen
@@ -430,6 +457,7 @@ export default function CustomerNotificationsPage() {
 
                       <div className="min-w-0 flex-1">
                         <p className="m-0 text-slate-700 leading-7 text-[15px] md:text-base break-words">
+                          {isProductNotification ? "🆕 " : ""}
                           {notification.notification_description}
                         </p>
 
@@ -456,6 +484,20 @@ export default function CustomerNotificationsPage() {
                               </>
                             )}
                           </span>
+
+                          {isProductNotification && (
+                            <span
+                              className="inline-flex items-center gap-2 px-3 py-2 rounded-full text-xs font-semibold"
+                              style={{
+                                background: "#eff6ff",
+                                color: "#1d4ed8",
+                                border: "1px solid #bfdbfe",
+                              }}
+                            >
+                              <ArrowUpRight size={13} />
+                              Open product
+                            </span>
+                          )}
 
                           <span
                             className="inline-flex items-center gap-2 px-3 py-2 rounded-full text-xs font-semibold"

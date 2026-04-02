@@ -51,7 +51,6 @@ router.get("/", verifyToken, requireRole("seller"), async (req, res) => {
  * POST /api/seller/products
  */
 router.post("/", verifyToken, requireRole("seller"), async (req, res) => {
-  const client = await pool.connect();
   try {
     const sellerId = req.user.user_id;
     const {
@@ -66,53 +65,56 @@ router.post("/", verifyToken, requireRole("seller"), async (req, res) => {
     } = req.body;
 
     if (!store_id || !product_name || price === undefined) {
-      return res.status(400).json({ message: "store_id, product_name, price required" });
+      return res.status(400).json({
+        message: "store_id, product_name, price required",
+      });
     }
 
-    await client.query("BEGIN");
-
-    // ✅ use client inside transaction
-    const storeCheck = await client.query(
-      `SELECT 1 FROM store WHERE store_id=$1 AND user_id=$2`,
-      [store_id, sellerId]
+    const { rows } = await pool.query(
+      `
+      SELECT create_seller_product(
+        $1::BIGINT,
+        $2::BIGINT,
+        $3::BIGINT,
+        $4::VARCHAR,
+        $5::NUMERIC,
+        $6::TEXT,
+        $7::INT,
+        $8::NUMERIC,
+        $9::TEXT[]
+      ) AS product_id
+      `,
+      [
+        sellerId,
+        store_id,
+        category_id,
+        product_name,
+        price,
+        product_description,
+        product_count,
+        discount,
+        images,
+      ]
     );
-    if (storeCheck.rowCount === 0) {
-      await client.query("ROLLBACK");
+
+    return res.status(201).json({
+      message: "Product created ✅",
+      product_id: rows[0].product_id,
+    });
+  } catch (e) {
+    console.error("CREATE PRODUCT ERROR:", e);
+
+    if (e.message?.includes("Not your store")) {
       return res.status(403).json({ message: "Not your store" });
     }
 
-    const pRes = await client.query(
-      `
-      INSERT INTO product (store_id, category_id, product_name, price, product_description, product_count, discount)
-      VALUES ($1,$2,$3,$4,$5,$6,$7)
-      RETURNING product_id
-      `,
-      [store_id, category_id, product_name, price, product_description, product_count, discount]
-    );
-
-    const productId = pRes.rows[0].product_id;
-
-    // images
-    if (Array.isArray(images) && images.length > 0) {
-      for (const url of images) {
-        if (url && String(url).trim().length > 5) {
-          await client.query(
-            `INSERT INTO product_image(product_id, image_url) VALUES ($1,$2)`,
-            [productId, url]
-          );
-        }
-      }
+    if (e.code === "23505") {
+      return res.status(409).json({ message: "Duplicate value" });
     }
 
-    await client.query("COMMIT");
-    res.status(201).json({ message: "Product created ✅", product_id: productId });
-  } catch (e) {
-    await client.query("ROLLBACK");
-    console.error(e);
-    if (e.code === "23505") return res.status(409).json({ message: "Duplicate value" });
-    res.status(500).json({ message: "Server error" });
-  } finally {
-    client.release();
+    return res.status(500).json({
+      message: e.message || "Server error",
+    });
   }
 });
 

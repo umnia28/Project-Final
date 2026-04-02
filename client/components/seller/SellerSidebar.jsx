@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   HomeIcon,
+  CircleDollarSign,
   StoreIcon,
   ShoppingBasketIcon,
   TagsIcon,
@@ -17,6 +18,7 @@ export default function SellerSidebar() {
 
   const links = [
     { name: "Dashboard", href: "/seller", icon: HomeIcon },
+    { name: "Sales Report", href: "/seller/salesreport", icon: CircleDollarSign },
     { name: "Profile", href: "/seller/profile", icon: CatIcon },
     { name: "Store", href: "/seller/store", icon: StoreIcon },
     { name: "Products", href: "/seller/products", icon: ShoppingBasketIcon },
