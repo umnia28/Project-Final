@@ -99,6 +99,7 @@ export const getDeliveryDashboard = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 /* =========================
    ORDERS
 ========================= */
@@ -150,8 +151,16 @@ export const getDeliveryOrders = async (req, res) => {
         oi.order_id,
         oi.product_id,
         oi.qty,
-        oi.price,
-        oi.discount_amount,
+
+        oi.price,                -- discounted unit price
+        COALESCE(oi.discount_amount, 0) AS discount_amount, -- product discount for whole line
+
+        -- final amount for this order line
+        (oi.price * oi.qty) AS line_total,
+
+        -- original amount before product discount
+        ((oi.price * oi.qty) + COALESCE(oi.discount_amount, 0)) AS original_line_total,
+
         oi.delivery_status,
         oi.cancelled_by,
         oi.cancel_reason,
@@ -180,10 +189,32 @@ export const getDeliveryOrders = async (req, res) => {
       itemsByOrder[item.order_id].push(item);
     }
 
-    const orders = ordersRes.rows.map((order) => ({
-      ...order,
-      items: itemsByOrder[order.order_id] || [],
-    }));
+    const orders = ordersRes.rows.map((order) => {
+      const orderItems = itemsByOrder[order.order_id] || [];
+
+      const isCod =
+        String(order.payment_method || "").toLowerCase() === "cod";
+
+      const isPaid =
+        String(order.payment_status || "").toLowerCase() === "paid";
+
+      const total = Number(order.total_price || 0);
+
+      return {
+        ...order,
+
+        // before delivery (COD unpaid)
+        collectable_amount: isCod && !isPaid ? total : 0,
+
+        // after delivery (COD paid)
+        collected_amount: isCod && isPaid ? total : 0,
+
+        // always useful
+        actual_amount: total,
+
+        items: orderItems,
+      };
+    });
 
     return res.json({ orders });
   } catch (err) {
@@ -191,6 +222,7 @@ export const getDeliveryOrders = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 /* =========================
    NOTIFICATIONS
 ========================= */
@@ -274,6 +306,7 @@ export const getDeliveryProfile = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 export const updateDeliveryProfile = async (req, res) => {
   try {
     const userId = req.user.user_id;
@@ -356,85 +389,9 @@ export const updateDeliveryOrderStatus = async (req, res) => {
   const client = await pool.connect();
 
   try {
-    const allowedStatuses = ["out_for_delivery", "delivered"];
-
-    if (!allowedStatuses.includes(delivery_status)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid delivery status",
-      });
-    }
-
     await client.query("BEGIN");
 
-    const itemCheck = await client.query(
-      `
-      SELECT 
-        oi.order_item_id,
-        oi.order_id,
-        oi.delivery_status,
-        oi.cancelled_by,
-        o.delivery_man_id
-      FROM order_item oi
-      JOIN "order" o ON o.order_id = oi.order_id
-      WHERE oi.order_id = $1
-      FOR UPDATE
-      `,
-      [orderId]
-    );
-
-    if (itemCheck.rows.length === 0) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({
-        success: false,
-        message: "No order items found for this order",
-      });
-    }
-
-    const validItems = itemCheck.rows.filter(
-      (item) =>
-        Number(item.delivery_man_id) === Number(deliverymanId) &&
-        !item.cancelled_by
-    );
-
-    if (validItems.length === 0) {
-      await client.query("ROLLBACK");
-      return res.status(403).json({
-        success: false,
-        message: "No assigned active items found for this delivery man",
-      });
-    }
-
-    if (delivery_status === "out_for_delivery") {
-      const hasInvalidStatus = validItems.some(
-        (item) => item.delivery_status !== "shipment_ready"
-      );
-
-      if (hasInvalidStatus) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({
-          success: false,
-          message: "Only shipment_ready items can be marked out_for_delivery",
-        });
-      }
-    }
-
-    if (delivery_status === "delivered") {
-      const hasInvalidStatus = validItems.some(
-        (item) =>
-          item.delivery_status !== "out_for_delivery" &&
-          item.delivery_status !== "shipment_ready"
-      );
-
-      if (hasInvalidStatus) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({
-          success: false,
-          message: "Only shipment_ready or out_for_delivery items can be marked delivered",
-        });
-      }
-    }
-
+    // update order items
     await client.query(
       `
       UPDATE order_item
@@ -445,7 +402,11 @@ export const updateDeliveryOrderStatus = async (req, res) => {
       [delivery_status, orderId]
     );
 
+    // =========================
+    // 🚚 DELIVERED LOGIC
+    // =========================
     if (delivery_status === "delivered") {
+      // set delivery time
       await client.query(
         `
         UPDATE "order"
@@ -454,27 +415,93 @@ export const updateDeliveryOrderStatus = async (req, res) => {
         `,
         [orderId]
       );
-    }
 
-    const existingStatusRes = await client.query(
-      `
-      SELECT 1
-      FROM order_status
-      WHERE order_id = $1
-        AND status_type = $2
-      LIMIT 1
-      `,
-      [orderId, delivery_status]
-    );
-
-    if (existingStatusRes.rows.length === 0) {
-      await client.query(
+      // COD → mark paid
+      const orderInfoRes = await client.query(
         `
-        INSERT INTO order_status (order_id, status_type, status_time, updated_by)
-        VALUES ($1, $2, NOW(), $3)
+        SELECT payment_method, payment_status
+        FROM "order"
+        WHERE order_id = $1
         `,
-        [orderId, delivery_status, deliverymanId]
+        [orderId]
       );
+
+      const orderInfo = orderInfoRes.rows[0];
+
+      const isCod =
+        String(orderInfo.payment_method).toLowerCase() === "cod";
+      const isUnpaid =
+        String(orderInfo.payment_status).toLowerCase() === "unpaid";
+
+      if (isCod && isUnpaid) {
+        await client.query(
+          `
+          UPDATE "order"
+          SET payment_status = 'paid'
+          WHERE order_id = $1
+          `,
+          [orderId]
+        );
+      }
+
+      // =========================
+      // 🎁 POINTS LOGIC
+      // =========================
+
+      const orderRes = await client.query(
+        `
+        SELECT customer_id, total_price, points_awarded
+        FROM "order"
+        WHERE order_id = $1
+        `,
+        [orderId]
+      );
+
+      const order = orderRes.rows[0];
+
+      if (order && !order.points_awarded && Number(order.total_price) > 100) {
+        const customerRes = await client.query(
+          `
+          SELECT user_id, is_plus_member, plus_expiry, points
+          FROM customer
+          WHERE user_id = $1
+          `,
+          [order.customer_id]
+        );
+
+        if (customerRes.rows.length > 0) {
+          const customer = customerRes.rows[0];
+
+          let earnedPoints = 20;
+
+          const isPlusActive =
+            customer.is_plus_member &&
+            customer.plus_expiry &&
+            new Date(customer.plus_expiry) > new Date();
+
+          if (isPlusActive) {
+            earnedPoints = 40;
+          }
+
+          await client.query(
+            `
+            UPDATE customer
+            SET points = COALESCE(points, 0) + $1
+            WHERE user_id = $2
+            `,
+            [earnedPoints, order.customer_id]
+          );
+
+          await client.query(
+            `
+            UPDATE "order"
+            SET points_awarded = TRUE
+            WHERE order_id = $1
+            `,
+            [orderId]
+          );
+        }
+      }
     }
 
     await client.query("COMMIT");
@@ -483,9 +510,12 @@ export const updateDeliveryOrderStatus = async (req, res) => {
       success: true,
       message: `Order marked as ${delivery_status}`,
     });
+
   } catch (error) {
     await client.query("ROLLBACK");
+
     console.error("UPDATE DELIVERY ORDER STATUS ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: "Failed to update delivery status",

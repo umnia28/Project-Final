@@ -133,6 +133,18 @@ const ProductCard = ({
     stock > 0 &&
     stock <= 5;
 
+  const basePrice = Number(
+    product?.base_price ?? product?.mrp ?? product?.price ?? 0
+  );
+  const finalPrice = Number(product?.price ?? 0);
+  const discountPercent = Number(
+    product?.discount_percent ?? product?.discount ?? 0
+  );
+  const discountAmount =
+    product?.discount_amount !== undefined && product?.discount_amount !== null
+      ? Number(product.discount_amount)
+      : Math.max(basePrice - finalPrice, 0);
+
   const handleToggleWishlist = async (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -312,6 +324,30 @@ const ProductCard = ({
               </span>
             )}
 
+            {!isOutOfStock && discountPercent > 0 && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: 14,
+                  left: 14,
+                  zIndex: 2,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "7px 12px",
+                  borderRadius: 999,
+                  background: "linear-gradient(135deg,#22c55e,#16a34a)",
+                  color: "#fff",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  fontFamily: "Inter, sans-serif",
+                  boxShadow: "0 10px 24px rgba(34,197,94,0.18)",
+                }}
+              >
+                {discountPercent}% OFF
+              </span>
+            )}
+
             <Image
               src={imgSrc}
               alt={productName}
@@ -460,14 +496,49 @@ const ProductCard = ({
                   background:
                     "linear-gradient(135deg, rgba(247,241,232,0.98), rgba(255,255,255,0.98), rgba(238,246,255,0.98))",
                   border: "1px solid rgba(167,139,219,0.12)",
-                  color: "#18181b",
-                  fontSize: 17,
-                  fontWeight: 700,
-                  fontFamily: "Georgia, serif",
                   boxShadow: "0 10px 20px rgba(167,139,219,0.05)",
+                  textAlign: "right",
                 }}
               >
-                {formatPrice(product?.price)}
+                {discountPercent > 0 && (
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 12,
+                      color: "#9ca3af",
+                      textDecoration: "line-through",
+                      fontFamily: "Inter, sans-serif",
+                    }}
+                  >
+                    {formatPrice(basePrice)}
+                  </p>
+                )}
+
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 17,
+                    fontWeight: 700,
+                    fontFamily: "Georgia, serif",
+                    color: "#18181b",
+                  }}
+                >
+                  {formatPrice(finalPrice)}
+                </p>
+
+                {discountPercent > 0 && (
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: "#16a34a",
+                      fontFamily: "Inter, sans-serif",
+                    }}
+                  >
+                    Save {discountPercent}% ({formatPrice(discountAmount)})
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -478,7 +549,6 @@ const ProductCard = ({
 };
 
 export default ProductCard;
-
 
 // "use client";
 
@@ -678,19 +748,19 @@ export default ProductCard;
 //           borderRadius: 30,
 //           background: "rgba(255,255,255,0.78)",
 //           border: "1px solid rgba(255,255,255,0.86)",
-//           boxShadow: "0 24px 70px rgba(168,85,247,0.08)",
+//           boxShadow: "0 24px 70px rgba(167,139,219,0.08)",
 //           backdropFilter: "blur(20px)",
 //           transition: "transform 0.25s ease, box-shadow 0.25s ease",
 //         }}
 //         onMouseEnter={(e) => {
 //           e.currentTarget.style.transform = "translateY(-4px)";
 //           e.currentTarget.style.boxShadow =
-//             "0 28px 80px rgba(168,85,247,0.14)";
+//             "0 28px 80px rgba(167,139,219,0.14)";
 //         }}
 //         onMouseLeave={(e) => {
 //           e.currentTarget.style.transform = "translateY(0)";
 //           e.currentTarget.style.boxShadow =
-//             "0 24px 70px rgba(168,85,247,0.08)";
+//             "0 24px 70px rgba(167,139,219,0.08)";
 //         }}
 //       >
 //         <button
@@ -708,7 +778,7 @@ export default ProductCard;
 //             borderRadius: "50%",
 //             border: "1px solid rgba(255,255,255,0.86)",
 //             background: wishlisted
-//               ? "linear-gradient(135deg,#ec4899,#a855f7,#f97316)"
+//               ? "linear-gradient(135deg,#d8c3a5,#a78bdb,#7fb6ea)"
 //               : "rgba(255,255,255,0.88)",
 //             display: "flex",
 //             alignItems: "center",
@@ -720,7 +790,7 @@ export default ProductCard;
 //         >
 //           <Heart
 //             size={18}
-//             color={wishlisted ? "#fff" : "#a855f7"}
+//             color={wishlisted ? "#fff" : "#8b7bd6"}
 //             fill={wishlisted ? "#fff" : "none"}
 //             strokeWidth={2}
 //           />
@@ -736,9 +806,9 @@ export default ProductCard;
 //               overflow: "hidden",
 //               margin: 12,
 //               borderRadius: 24,
-//               border: "1px solid rgba(244,114,182,0.10)",
+//               border: "1px solid rgba(167,139,219,0.10)",
 //               background:
-//                 "linear-gradient(135deg, rgba(255,245,247,0.95), rgba(255,255,255,0.98), rgba(255,247,237,0.96))",
+//                 "linear-gradient(135deg, rgba(247,241,232,0.95), rgba(255,255,255,0.98), rgba(238,246,255,0.96))",
 //               height: 250,
 //             }}
 //           >
@@ -752,7 +822,7 @@ export default ProductCard;
 //                 height: 110,
 //                 borderRadius: "50%",
 //                 background:
-//                   "radial-gradient(circle, rgba(236,72,153,0.18), transparent 70%)",
+//                   "radial-gradient(circle, rgba(167,139,219,0.18), transparent 70%)",
 //               }}
 //             />
 //             <div
@@ -765,7 +835,7 @@ export default ProductCard;
 //                 height: 120,
 //                 borderRadius: "50%",
 //                 background:
-//                   "radial-gradient(circle, rgba(249,115,22,0.14), transparent 70%)",
+//                   "radial-gradient(circle, rgba(127,182,234,0.14), transparent 70%)",
 //               }}
 //             />
 
@@ -898,9 +968,9 @@ export default ProductCard;
 //                         gap: 6,
 //                         padding: "7px 12px",
 //                         borderRadius: 999,
-//                         background: "#fff7ed",
-//                         color: "#c2410c",
-//                         border: "1px solid #fdba74",
+//                         background: "#f7f1e8",
+//                         color: "#a07d57",
+//                         border: "1px solid #e6d8c3",
 //                         fontSize: 12,
 //                         fontWeight: 600,
 //                         fontFamily: "Inter, sans-serif",
@@ -940,13 +1010,13 @@ export default ProductCard;
 //                   borderRadius: 999,
 //                   padding: "10px 14px",
 //                   background:
-//                     "linear-gradient(135deg, rgba(255,245,247,0.98), rgba(255,255,255,0.98), rgba(255,247,237,0.98))",
-//                   border: "1px solid rgba(244,114,182,0.12)",
+//                     "linear-gradient(135deg, rgba(247,241,232,0.98), rgba(255,255,255,0.98), rgba(238,246,255,0.98))",
+//                   border: "1px solid rgba(167,139,219,0.12)",
 //                   color: "#18181b",
 //                   fontSize: 17,
 //                   fontWeight: 700,
 //                   fontFamily: "Georgia, serif",
-//                   boxShadow: "0 10px 20px rgba(168,85,247,0.05)",
+//                   boxShadow: "0 10px 20px rgba(167,139,219,0.05)",
 //                 }}
 //               >
 //                 {formatPrice(product?.price)}
@@ -960,3 +1030,4 @@ export default ProductCard;
 // };
 
 // export default ProductCard;
+

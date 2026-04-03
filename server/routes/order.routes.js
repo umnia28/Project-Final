@@ -82,6 +82,45 @@ router.get("/:id", verifyToken, requireRole("customer"), async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
 
+    // const itemsRes = await pool.query(
+    //   `
+    //   SELECT
+    //     oi.order_item_id,
+    //     oi.product_id,
+    //     oi.qty,
+    //     oi.price,
+    //     oi.discount_amount,
+    //     oi.seller_status,
+    //     oi.seller_confirmed_at,
+    //     oi.seller_cancelled_at,
+    //     oi.customer_cancelled_at,
+    //     oi.cancelled_by,
+    //     oi.cancel_reason,
+    //     oi.delivery_status,
+    //     p.product_name,
+    //     s.store_name
+    //   FROM order_item oi
+    //   JOIN product p ON p.product_id = oi.product_id
+    //   JOIN store s ON s.store_id = p.store_id
+    //   WHERE oi.order_id = $1
+    //   ORDER BY oi.order_item_id
+    //   `,
+    //   [orderId]
+    // );
+
+    // const timelineRes = await pool.query(
+    //   `
+    //   SELECT
+    //     status_type,
+    //     status_time
+    //   FROM order_status
+    //   WHERE order_id = $1
+    //   ORDER BY status_time ASC
+    //   `,
+    //   [orderId]
+    // );
+    
+    
     const itemsRes = await pool.query(
       `
       SELECT
@@ -89,7 +128,11 @@ router.get("/:id", verifyToken, requireRole("customer"), async (req, res) => {
         oi.product_id,
         oi.qty,
         oi.price,
-        oi.discount_amount,
+        COALESCE(oi.discount_amount, 0) AS discount_amount,
+
+        (oi.price * oi.qty) AS line_total,
+        ((oi.price * oi.qty) + COALESCE(oi.discount_amount, 0)) AS original_line_total,
+
         oi.seller_status,
         oi.seller_confirmed_at,
         oi.seller_cancelled_at,
@@ -97,25 +140,15 @@ router.get("/:id", verifyToken, requireRole("customer"), async (req, res) => {
         oi.cancelled_by,
         oi.cancel_reason,
         oi.delivery_status,
+
         p.product_name,
         s.store_name
+
       FROM order_item oi
       JOIN product p ON p.product_id = oi.product_id
       JOIN store s ON s.store_id = p.store_id
       WHERE oi.order_id = $1
       ORDER BY oi.order_item_id
-      `,
-      [orderId]
-    );
-
-    const timelineRes = await pool.query(
-      `
-      SELECT
-        status_type,
-        status_time
-      FROM order_status
-      WHERE order_id = $1
-      ORDER BY status_time ASC
       `,
       [orderId]
     );

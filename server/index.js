@@ -31,8 +31,7 @@ import publicStoreRoutes from "./routes/publicStore.routes.js"
 import newsletterRoutes from "./routes/newsletter.routes.js";
 import reviewRoutes from "./routes/review.routes.js";
 import productQaRoutes from "./routes/product.qa.routes.js";
-
-
+import claimPromoRoutes from "./routes/claim_promo.routes.js";
 
 
 
@@ -76,12 +75,12 @@ app.use("/api/promos", promoRoutes);
 app.use("/api/customer", customerRoutes);
 app.use("/api/deliveryman", deliveryManRoutes);
 app.use("/api/contact", contactRoutes);
-app.use("/api/plus-member", plusMemberRoutes);
+app.use("/api/plusMember", plusMemberRoutes);
 app.use("/api/public/stores", publicStoreRoutes);
 app.use("/api/newsletter", newsletterRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/product-qa", productQaRoutes);
-
+app.use("/api/claim_promo", claimPromoRoutes);
 
 
 
