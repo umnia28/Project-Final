@@ -20,7 +20,7 @@ export async function fetchMe() {
     return null;
   }
 }
-// components/auth.utils.js
+//components/auth.utils.js
 
 export function getToken() {
   if (typeof window === "undefined") return null;
@@ -32,7 +32,7 @@ export function logout() {
   localStorage.removeItem("user");
 }
 
-// Decode JWT payload (no library needed)
+//Decode JWT payload
 export function isTokenExpired(token) {
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));

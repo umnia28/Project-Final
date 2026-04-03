@@ -37,7 +37,7 @@ const signToken = (user) =>
     { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
   );
 
-// POST /api/auth/register
+// POST /api/auth/register---->SIGNUP
 export const registerUser = async (req, res) => {
   try {
     const { username, email, password, contact_no, full_name, gender } = req.body;
@@ -65,7 +65,7 @@ export const registerUser = async (req, res) => {
 
     const user = rows[0];
 
-    // ✅ recommended: new users are customers by default
+    //new users are customers by default
     await pool.query(
       `INSERT INTO customer(user_id) VALUES ($1) ON CONFLICT DO NOTHING`,
       [user.user_id]
