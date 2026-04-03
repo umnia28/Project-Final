@@ -357,3 +357,135 @@ EXECUTE FUNCTION sync_product_status_from_stock();
 
 -- ALTER TABLE seller
 -- ALTER COLUMN approved_by DROP NOT NULL;
+
+
+
+                      ---- dola's latest changes 
+
+
+-- ALTER TABLE "order"
+-- ADD COLUMN points_awarded BOOLEAN DEFAULT FALSE;
+
+-- ALTER TABLE customer
+-- ADD COLUMN is_plus_member BOOLEAN DEFAULT FALSE,
+-- ADD COLUMN plus_expiry TIMESTAMP NULL;
+
+-- UPDATE customer
+-- SET 
+--     plus_expiry = NOW() + INTERVAL '30 days'
+-- WHERE user_id = 12;
+
+
+-- --- promo table
+
+
+-- ALTER TABLE promo
+-- ADD COLUMN promo_code VARCHAR(80) UNIQUE,
+-- ADD COLUMN claimed_by_user_id BIGINT,
+-- ADD COLUMN points_required INT,
+-- ADD COLUMN is_reward_promo BOOLEAN DEFAULT FALSE,
+-- ADD COLUMN is_used BOOLEAN DEFAULT FALSE;
+
+
+-- ALTER TABLE promo
+-- ALTER COLUMN admin_user_id DROP NOT NULL;
+-- --- procedure to unlock promo by points
+
+-- CREATE OR REPLACE PROCEDURE claim_points_reward(
+--     IN p_user_id BIGINT,
+--     IN p_reward_type VARCHAR(30),
+--     INOUT p_success BOOLEAN DEFAULT FALSE,
+--     INOUT p_message TEXT DEFAULT NULL,
+--     INOUT p_promo_code VARCHAR(80) DEFAULT NULL,
+--     INOUT p_remaining_points INT DEFAULT NULL
+-- )
+-- LANGUAGE plpgsql
+-- AS $$
+-- DECLARE
+--     v_points INT;
+--     v_points_required INT;
+--     v_discount NUMERIC(12,2);
+--     v_promo_name VARCHAR(120);
+--     v_generated_code VARCHAR(80);
+-- BEGIN
+--     IF p_reward_type = 'reward_100' THEN
+--         v_points_required := 100;
+--         v_discount := 30;
+--         v_promo_name := 'Reward Promo 30%';
+--     ELSIF p_reward_type = 'reward_200' THEN
+--         v_points_required := 200;
+--         v_discount := 50;
+--         v_promo_name := 'Reward Promo 50%';
+--     ELSIF p_reward_type = 'reward_500' THEN
+--         v_points_required := 500;
+--         v_discount := 70;
+--         v_promo_name := 'Reward Promo 70%';
+--     ELSE
+--         p_success := FALSE;
+--         p_message := 'Invalid reward type';
+--         RETURN;
+--     END IF;
+
+--     SELECT points
+--     INTO v_points
+--     FROM customer
+--     WHERE user_id = p_user_id
+--     FOR UPDATE;
+
+--     IF NOT FOUND THEN
+--         p_success := FALSE;
+--         p_message := 'Customer not found';
+--         RETURN;
+--     END IF;
+
+--     IF COALESCE(v_points, 0) < v_points_required THEN
+--         p_success := FALSE;
+--         p_message := 'Not enough points';
+--         p_remaining_points := COALESCE(v_points, 0);
+--         RETURN;
+--     END IF;
+
+--     UPDATE customer
+--     SET points = COALESCE(points, 0) - v_points_required
+--     WHERE user_id = p_user_id;
+
+--     v_generated_code := 'RW' || p_user_id || EXTRACT(EPOCH FROM NOW())::BIGINT;
+
+--     INSERT INTO promo (
+--         admin_user_id,
+--         promo_name,
+--         promo_status,
+--         promo_discount,
+--         promo_start_date,
+--         promo_end_date,
+--         promo_code,
+--         claimed_by_user_id,
+--         points_required,
+--         is_reward_promo,
+--         is_used
+--     )
+--     VALUES (
+--         NULL,
+--         v_promo_name,
+--         'active',
+--         v_discount,
+--         CURRENT_DATE,
+--         CURRENT_DATE + 30,
+--         v_generated_code,
+--         p_user_id,
+--         v_points_required,
+--         TRUE,
+--         FALSE
+--     );
+
+--     SELECT points
+--     INTO p_remaining_points
+--     FROM customer
+--     WHERE user_id = p_user_id;
+
+--     p_success := TRUE;
+--     p_message := 'Reward promo claimed successfully';
+--     p_promo_code := v_generated_code;
+-- END;
+-- $$;
+
