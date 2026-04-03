@@ -31,7 +31,7 @@ const signToken = (user) =>
       user_id: user.user_id,
       email: user.email,
       username: user.username,
-      role: user.role, // ✅ include role
+      role: user.role, 
     },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
@@ -65,7 +65,7 @@ export const registerUser = async (req, res) => {
 
     const user = rows[0];
 
-    // ✅ recommended: new users are customers by default
+    // new users are customers by default
     await pool.query(
       `INSERT INTO customer(user_id) VALUES ($1) ON CONFLICT DO NOTHING`,
       [user.user_id]
