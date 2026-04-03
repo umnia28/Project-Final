@@ -579,26 +579,96 @@ export default function SellerProductsPage() {
 
   const create = async (payload) => {
     const token = localStorage.getItem("token");
+
+    const { attributes = [], ...productData } = payload;
+
+    // 1. create main product first
     const res = await fetch(`${API}/api/seller/products`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify(payload),
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(productData),
     });
+
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || "Create failed");
+
+    // support a few possible backend response shapes
+    const productId =
+      data?.product?.product_id ||
+      data?.product_id ||
+      data?.data?.product_id;
+
+    if (!productId) {
+      throw new Error("Product created, but product_id was not returned from backend");
+    }
+
+    // 2. create attributes/variants if provided
+    const cleanedAttributes = attributes.filter(
+      (a) => a.attribute_name && a.attribute_value
+    );
+
+    if (cleanedAttributes.length > 0) {
+      const attrRes = await fetch(`${API}/api/seller/products/${productId}/attributes`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ attributes: cleanedAttributes }),
+      });
+
+      const attrData = await attrRes.json().catch(() => ({}));
+      if (!attrRes.ok) {
+        throw new Error(attrData.message || "Product created, but attributes save failed");
+      }
+    }
+
     await load();
     setOpen(false);
   };
 
   const update = async (payload) => {
     const token = localStorage.getItem("token");
+
+    const { attributes = [], ...productData } = payload;
+
+    // 1. update main product
     const res = await fetch(`${API}/api/seller/products/${editing.product_id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify(payload),
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(productData),
     });
+
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || "Update failed");
+
+    // 2. update attributes if backend route exists
+    const cleanedAttributes = attributes.filter(
+      (a) => a.attribute_name && a.attribute_value
+    );
+
+    if (cleanedAttributes.length > 0) {
+      const attrRes = await fetch(`${API}/api/seller/products/${editing.product_id}/attributes`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ attributes: cleanedAttributes }),
+      });
+
+      const attrData = await attrRes.json().catch(() => ({}));
+      if (!attrRes.ok) {
+        throw new Error(attrData.message || "Product updated, but attributes update failed");
+      }
+    }
+
     await load();
     setEditing(null);
     setOpen(false);

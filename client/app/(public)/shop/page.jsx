@@ -2,22 +2,31 @@
 
 import { Suspense, useCallback, useEffect } from "react"
 import ProductCard from "@/components/ProductCard"
-import { MoveLeftIcon, Sparkles } from "lucide-react"
+import { MoveLeftIcon, Sparkles, ChevronLeft, ChevronRight } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useDispatch, useSelector } from "react-redux"
 import { fetchDbProducts } from "@/lib/features/product/productSlice"
 
 function ShopContent() {
   const searchParams = useSearchParams()
-  const search = searchParams.get('search') || ""
+  const search = searchParams.get("search") || ""
+  const page = Math.max(Number(searchParams.get("page")) || 1, 1)
+
   const router = useRouter()
   const dispatch = useDispatch()
 
   const products = useSelector((state) => state.product.list || [])
+  const pagination = useSelector((state) => state.product.pagination || {
+    page: 1,
+    limit: 30,
+    total: 0,
+    totalPages: 1,
+  })
+  const loading = useSelector((state) => state.product.loading)
 
   const loadProducts = useCallback(() => {
-    dispatch(fetchDbProducts(search))
-  }, [dispatch, search])
+    dispatch(fetchDbProducts({ search, page }))
+  }, [dispatch, search, page])
 
   useEffect(() => {
     loadProducts()
@@ -43,11 +52,18 @@ function ShopContent() {
     }
   }, [loadProducts])
 
-  const filteredProducts = search
-    ? products.filter((p) =>
-        (p.name || p.product_name || "").toLowerCase().includes(search.toLowerCase())
-      )
-    : products
+  const goToPage = (newPage) => {
+    const params = new URLSearchParams()
+
+    if (search) params.set("search", search)
+    params.set("page", String(newPage))
+
+    router.push(`/shop?${params.toString()}`)
+  }
+
+  const goToAllProducts = () => {
+    router.push("/shop")
+  }
 
   return (
     <div className="relative min-h-[70vh] overflow-hidden px-6">
@@ -71,11 +87,17 @@ function ShopContent() {
             <p className="mt-2 max-w-2xl text-sm sm:text-base text-slate-600">
               Explore handcrafted beauty, timeless décor, and curated artistic finds.
             </p>
+
+            {!loading && (
+              <p className="mt-3 text-sm text-slate-500">
+                Showing page {pagination.page} of {pagination.totalPages || 1} · {pagination.total} products
+              </p>
+            )}
           </div>
 
           {search && (
             <button
-              onClick={() => router.push('/shop')}
+              onClick={goToAllProducts}
               className="inline-flex items-center gap-2 self-start rounded-full border border-[#ebe7f5] bg-white/85 px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
             >
               <MoveLeftIcon size={16} />
@@ -85,15 +107,47 @@ function ShopContent() {
         </div>
 
         <div className="rounded-[2rem] border border-[#ebe7f5] bg-white/75 p-5 shadow-[0_20px_70px_rgba(180,160,255,0.08)] backdrop-blur-xl sm:p-7">
-          {filteredProducts.length > 0 ? (
-            <div className="mx-auto mb-10 grid grid-cols-2 gap-6 sm:flex sm:flex-wrap xl:gap-12">
-              {filteredProducts.map((product) => (
-                <ProductCard
-                  key={product.id || product.product_id}
-                  product={product}
-                />
-              ))}
+          {loading ? (
+            <div className="flex min-h-[260px] items-center justify-center">
+              <div className="rounded-[1.75rem] border border-[#ebe7f5] bg-white/85 px-8 py-6 text-slate-600 shadow-[0_15px_40px_rgba(180,160,255,0.08)] backdrop-blur-md">
+                Loading products...
+              </div>
             </div>
+          ) : products.length > 0 ? (
+            <>
+              <div className="mx-auto mb-10 grid grid-cols-2 gap-6 sm:flex sm:flex-wrap xl:gap-12">
+                {products.map((product) => (
+                  <ProductCard
+                    key={product.id || product.product_id}
+                    product={product}
+                  />
+                ))}
+              </div>
+
+              <div className="mt-4 flex items-center justify-center gap-3">
+                <button
+                  onClick={() => goToPage(page - 1)}
+                  disabled={page <= 1}
+                  className="inline-flex items-center gap-2 rounded-full border border-[#ebe7f5] bg-white/85 px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
+                >
+                  <ChevronLeft size={16} />
+                  Previous
+                </button>
+
+                <div className="rounded-full border border-[#ebe7f5] bg-[linear-gradient(90deg,#eff6ff,#f5f3ff,#faf8ef)] px-5 py-2 text-sm font-semibold text-slate-700 shadow-sm">
+                  Page {pagination.page} / {pagination.totalPages || 1}
+                </div>
+
+                <button
+                  onClick={() => goToPage(page + 1)}
+                  disabled={page >= pagination.totalPages}
+                  className="inline-flex items-center gap-2 rounded-full border border-[#ebe7f5] bg-white/85 px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
+                >
+                  Next
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </>
           ) : (
             <div className="flex min-h-[260px] items-center justify-center">
               <div className="rounded-[1.75rem] border border-[#ebe7f5] bg-[linear-gradient(to_bottom_right,rgba(255,255,255,0.88),rgba(239,246,255,0.75),rgba(245,243,255,0.72))] px-8 py-12 text-center shadow-[0_15px_40px_rgba(180,160,255,0.08)]">
@@ -107,7 +161,7 @@ function ShopContent() {
 
                 {search && (
                   <button
-                    onClick={() => router.push('/shop')}
+                    onClick={goToAllProducts}
                     className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#dbeafe] via-[#c4b5fd] to-[#f5f5dc] px-6 py-3 text-sm font-semibold text-slate-700 shadow-[0_12px_30px_rgba(180,160,255,0.18)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_rgba(180,160,255,0.24)]"
                   >
                     <MoveLeftIcon size={16} />

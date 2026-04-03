@@ -108,17 +108,17 @@ router.get("/:id", verifyToken, requireRole("customer"), async (req, res) => {
     //   [orderId]
     // );
 
-    // const timelineRes = await pool.query(
-    //   `
-    //   SELECT
-    //     status_type,
-    //     status_time
-    //   FROM order_status
-    //   WHERE order_id = $1
-    //   ORDER BY status_time ASC
-    //   `,
-    //   [orderId]
-    // );
+    const timelineRes = await pool.query(
+      `
+      SELECT
+        status_type,
+        status_time
+      FROM order_status
+      WHERE order_id = $1
+      ORDER BY status_time ASC
+      `,
+      [orderId]
+    );
     
     
     const itemsRes = await pool.query(

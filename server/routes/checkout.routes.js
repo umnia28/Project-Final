@@ -25,6 +25,7 @@ router.post("/create", verifyToken, async (req, res) => {
 
     for (const item of items) {
       const qty = Number(item.quantity);
+      const selectedAttributes = item.selected_attributes || {};
 
       if (!item.product_id || qty <= 0) {
         throw new Error(`Invalid quantity or product for product_id ${item.product_id}`);
@@ -48,11 +49,40 @@ router.post("/create", verifyToken, async (req, res) => {
 
       const originalPrice = Number(product.price || 0);
       const productDiscountPercent = Number(product.discount || 0);
-      const stock = Number(product.product_count);
-      const status = product.status;
 
-      if (status !== "active") {
-        throw new Error(`Product ${item.product_id} is not available for ordering`);
+      let stock = Number(product.product_count);
+      let finalBasePrice = originalPrice;
+
+      // VARIANT CHECK
+      if (Object.keys(selectedAttributes).length > 0) {
+        for (const [name, value] of Object.entries(selectedAttributes)) {
+          const variantRes = await client.query(
+            `
+            SELECT stock, new_price
+            FROM product_attributes
+            WHERE product_id = $1
+              AND attribute_name = $2
+              AND attribute_value = $3
+            FOR UPDATE
+            `,
+            [item.product_id, name, value]
+          );
+
+          if (variantRes.rows.length === 0) {
+            throw new Error(`Variant not found: ${name} = ${value}`);
+          }
+
+          const variant = variantRes.rows[0];
+          stock = Number(variant.stock);
+
+          if (variant.new_price !== null) {
+            finalBasePrice = Number(variant.new_price);
+          }
+        }
+      }
+
+      if (product.status !== "active") {
+        throw new Error(`Product ${item.product_id} is not available`);
       }
 
       if (stock <= 0) {
@@ -60,13 +90,15 @@ router.post("/create", verifyToken, async (req, res) => {
       }
 
       if (qty > stock) {
-        throw new Error(`Only ${stock} item(s) available for product ${item.product_id}`);
+        throw new Error(`Only ${stock} item(s) available`);
       }
 
-      const productDiscountPerUnit = (originalPrice * productDiscountPercent) / 100;
-      const finalUnitPrice = originalPrice - productDiscountPerUnit;
+      const productDiscountPerUnit =
+        (finalBasePrice * productDiscountPercent) / 100;
 
-      const itemOriginalSubtotal = originalPrice * qty;
+      const finalUnitPrice = finalBasePrice - productDiscountPerUnit;
+
+      const itemOriginalSubtotal = finalBasePrice * qty;
       const itemProductDiscountTotal = productDiscountPerUnit * qty;
       const itemSubtotal = finalUnitPrice * qty;
 
@@ -76,13 +108,14 @@ router.post("/create", verifyToken, async (req, res) => {
       validatedItems.push({
         product_id: item.product_id,
         qty,
-        originalPrice,
+        originalPrice: finalBasePrice,
         finalUnitPrice,
         productDiscountPercent,
         productDiscountPerUnit,
         itemOriginalSubtotal,
         itemProductDiscountTotal,
         itemSubtotal,
+        selectedAttributes,
       });
     }
 
@@ -126,15 +159,15 @@ router.post("/create", verifyToken, async (req, res) => {
       const now = new Date();
 
       if (promo.promo_status !== "active") {
-        throw new Error("Promo is not active");
+        throw new Error("Promo not active");
       }
 
       if (promo.promo_start_date && new Date(promo.promo_start_date) > now) {
-        throw new Error("Promo has not started yet");
+        throw new Error("Promo not started");
       }
 
       if (promo.promo_end_date && new Date(promo.promo_end_date) < now) {
-        throw new Error("Promo has expired");
+        throw new Error("Promo expired");
       }
 
       if (promo.is_reward_promo) {
@@ -201,7 +234,9 @@ router.post("/create", verifyToken, async (req, res) => {
         if (i === validatedItems.length - 1) {
           itemPromoDiscount = promoDiscountTotal - distributedPromoDiscount;
         } else {
-          itemPromoDiscount = Math.round((item.itemSubtotal / subtotal) * promoDiscountTotal);
+          itemPromoDiscount = Math.round(
+            (item.itemSubtotal / subtotal) * promoDiscountTotal
+          );
           distributedPromoDiscount += itemPromoDiscount;
         }
       }
@@ -216,9 +251,10 @@ router.post("/create", verifyToken, async (req, res) => {
           qty,
           price,
           discount_amount,
-          seller_earnings
+          seller_earnings,
+          selected_attributes
         )
-        VALUES ($1, $2, $3, $4, $5, $6)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         `,
         [
           orderId,
@@ -227,17 +263,35 @@ router.post("/create", verifyToken, async (req, res) => {
           item.finalUnitPrice,
           item.itemProductDiscountTotal,
           sellerEarnings,
+          JSON.stringify(item.selectedAttributes || {}),
         ]
       );
 
-      await client.query(
-        `
-        UPDATE product
-        SET product_count = product_count - $1
-        WHERE product_id = $2
-        `,
-        [item.qty, item.product_id]
-      );
+      // STOCK UPDATE
+      if (Object.keys(item.selectedAttributes).length > 0) {
+        for (const [name, value] of Object.entries(item.selectedAttributes)) {
+          await client.query(
+            `
+            UPDATE product_attributes
+            SET stock = stock - $1,
+                sold = sold + $1
+            WHERE product_id = $2
+              AND attribute_name = $3
+              AND attribute_value = $4
+            `,
+            [item.qty, item.product_id, name, value]
+          );
+        }
+      } else {
+        await client.query(
+          `
+          UPDATE product
+          SET product_count = product_count - $1
+          WHERE product_id = $2
+          `,
+          [item.qty, item.product_id]
+        );
+      }
     }
 
     await client.query(
@@ -290,7 +344,6 @@ router.post("/create", verifyToken, async (req, res) => {
 export default router;
 
 
-
 // import express from "express";
 // import pool from "../db.js";
 // import { verifyToken } from "../middleware/verifyToken.js";
@@ -302,7 +355,7 @@ export default router;
 
 //   try {
 //     const userId = req.user.user_id;
-//     const { items, address_id, payment_method, promo_code } = req.body;
+//     const { items, address_id, payment_method, promo_id } = req.body;
 
 //     if (!items || items.length === 0) {
 //       return res.status(400).json({ message: "Cart is empty" });
@@ -312,12 +365,13 @@ export default router;
 
 //     const deliveryCharge = 60;
 
-//     let subtotal = 0; // subtotal after product discount, before promo
+//     let subtotal = 0;
 //     let totalProductDiscount = 0;
 //     const validatedItems = [];
 
 //     for (const item of items) {
 //       const qty = Number(item.quantity);
+//       const selectedAttributes = item.selected_attributes || {};
 
 //       if (!item.product_id || qty <= 0) {
 //         throw new Error(`Invalid quantity or product for product_id ${item.product_id}`);
@@ -338,14 +392,49 @@ export default router;
 //       }
 
 //       const product = productRes.rows[0];
+// <<<<<<< HEAD
 
 //       const originalPrice = Number(product.price || 0);
 //       const productDiscountPercent = Number(product.discount || 0);
 //       const stock = Number(product.product_count);
 //       const status = product.status;
+// =======
+// >>>>>>> origin/shreya_branch
 
-//       if (status !== "active") {
-//         throw new Error(`Product ${item.product_id} is not available for ordering`);
+//       let price = Number(product.price);
+//       let stock = Number(product.product_count);
+
+//       // 🔥 VARIANT CHECK
+//       if (Object.keys(selectedAttributes).length > 0) {
+//         for (const [name, value] of Object.entries(selectedAttributes)) {
+//           const variantRes = await client.query(
+//             `
+//             SELECT stock, new_price
+//             FROM product_attributes
+//             WHERE product_id = $1
+//               AND attribute_name = $2
+//               AND attribute_value = $3
+//             FOR UPDATE
+//             `,
+//             [item.product_id, name, value]
+//           );
+
+//           if (variantRes.rows.length === 0) {
+//             throw new Error(`Variant not found: ${name} = ${value}`);
+//           }
+
+//           const variant = variantRes.rows[0];
+
+//           stock = Number(variant.stock);
+
+//           if (variant.new_price !== null) {
+//             price = Number(variant.new_price);
+//           }
+//         }
+//       }
+
+//       if (product.status !== "active") {
+//         throw new Error(`Product ${item.product_id} is not available`);
 //       }
 
 //       if (stock <= 0) {
@@ -353,12 +442,10 @@ export default router;
 //       }
 
 //       if (qty > stock) {
-//         throw new Error(`Only ${stock} item(s) available for product ${item.product_id}`);
+//         throw new Error(`Only ${stock} item(s) available`);
 //       }
 
-//       const productDiscountPerUnit =
-//         (originalPrice * productDiscountPercent) / 100;
-
+//       const productDiscountPerUnit = (originalPrice * productDiscountPercent) / 100;
 //       const finalUnitPrice = originalPrice - productDiscountPerUnit;
 
 //       const itemOriginalSubtotal = originalPrice * qty;
@@ -378,6 +465,7 @@ export default router;
 //         itemOriginalSubtotal,
 //         itemProductDiscountTotal,
 //         itemSubtotal,
+//         selectedAttributes,
 //       });
 //     }
 
@@ -393,75 +481,50 @@ export default router;
 //     let appliedPromoId = null;
 //     let appliedPromo = null;
 
-//     if (promo_code) {
-//       const code = String(promo_code).trim();
-//       const isNumeric = /^\d+$/.test(code);
-
-//       let promoRes;
-
-//       if (isNumeric) {
-//         // normal admin promo by promo_id
-//         promoRes = await client.query(
-//           `
-//           SELECT
-//             promo_id,
-//             promo_name,
-//             promo_status,
-//             promo_discount,
-//             promo_start_date,
-//             promo_end_date,
-//             promo_code,
-//             claimed_by_user_id,
-//             is_reward_promo,
-//             is_used
-//           FROM promo
-//           WHERE promo_id = $1
-//             AND COALESCE(is_reward_promo, FALSE) = FALSE
-//           `,
-//           [Number(code)]
-//         );
-//       } else {
-//         // reward promo by promo_code
-//         promoRes = await client.query(
-//           `
-//           SELECT
-//             promo_id,
-//             promo_name,
-//             promo_status,
-//             promo_discount,
-//             promo_start_date,
-//             promo_end_date,
-//             promo_code,
-//             claimed_by_user_id,
-//             is_reward_promo,
-//             is_used
-//           FROM promo
-//           WHERE promo_code = $1
-//           `,
-//           [code]
-//         );
-//       }
+//     if (promo_id) {
+//       const promoRes = await client.query(
+//         `
+// <<<<<<< HEAD
+//         SELECT
+//           promo_id,
+//           promo_name,
+//           promo_status,
+//           promo_discount,
+//           promo_start_date,
+//           promo_end_date,
+//           promo_code,
+//           claimed_by_user_id,
+//           is_reward_promo,
+//           is_used
+// =======
+//         SELECT *
+// >>>>>>> origin/shreya_branch
+//         FROM promo
+//         WHERE promo_id = $1
+//         `,
+//         [Number(promo_id)]
+//       );
 
 //       if (promoRes.rows.length === 0) {
-//         throw new Error("Invalid promo code");
+//         throw new Error("Invalid promo");
 //       }
 
 //       const promo = promoRes.rows[0];
 //       const now = new Date();
 
-//       if (promo.promo_status !== "active") {
-//         throw new Error("Promo is not active");
-//       }
+//       if (promo.promo_status !== "active") throw new Error("Promo not active");
+//       if (promo.promo_start_date && new Date(promo.promo_start_date) > now)
+//         throw new Error("Promo not started");
+//       if (promo.promo_end_date && new Date(promo.promo_end_date) < now)
+//         throw new Error("Promo expired");
 
-//       if (promo.promo_start_date && new Date(promo.promo_start_date) > now) {
-//         throw new Error("Promo has not started yet");
-//       }
+//       const percent = Number(promo.promo_discount);
 
+// <<<<<<< HEAD
 //       if (promo.promo_end_date && new Date(promo.promo_end_date) < now) {
 //         throw new Error("Promo has expired");
 //       }
 
-//       // reward promo checks
 //       if (promo.is_reward_promo) {
 //         if (Number(promo.claimed_by_user_id) !== Number(userId)) {
 //           throw new Error("This reward promo does not belong to you");
@@ -477,6 +540,12 @@ export default router;
 //       if (promoPercent > 0) {
 //         promoDiscountTotal = Math.round((subtotal * promoPercent) / 100);
 //         if (promoDiscountTotal > subtotal) promoDiscountTotal = subtotal;
+// =======
+//       if (percent > 0) {
+//         totalDiscount = Math.round((subtotal * percent) / 100);
+//         if (totalDiscount > subtotal) totalDiscount = subtotal;
+//         appliedPromoId = promo.promo_id;
+// >>>>>>> origin/shreya_branch
 //       }
 
 //       appliedPromoId = promo.promo_id;
@@ -508,7 +577,7 @@ export default router;
 //         finalPaymentMethod,
 //         paymentStatus,
 //         deliveryCharge,
-//         promoDiscountTotal, // promo discount only at order level
+//         promoDiscountTotal,
 //         finalTotal,
 //       ]
 //     );
@@ -526,15 +595,14 @@ export default router;
 //         if (i === validatedItems.length - 1) {
 //           itemPromoDiscount = promoDiscountTotal - distributedPromoDiscount;
 //         } else {
-//           itemPromoDiscount = Math.round(
-//             (item.itemSubtotal / subtotal) * promoDiscountTotal
-//           );
+//           itemPromoDiscount = Math.round((item.itemSubtotal / subtotal) * promoDiscountTotal);
 //           distributedPromoDiscount += itemPromoDiscount;
 //         }
 //       }
 
 //       const sellerEarnings = item.itemSubtotal - itemPromoDiscount;
 
+//       // ✅ INSERT ORDER ITEM WITH VARIANT
 //       await client.query(
 //         `
 //         INSERT INTO order_item (
@@ -543,9 +611,10 @@ export default router;
 //           qty,
 //           price,
 //           discount_amount,
-//           seller_earnings
+//           seller_earnings,
+//           selected_attributes
 //         )
-//         VALUES ($1, $2, $3, $4, $5, $6)
+//         VALUES ($1, $2, $3, $4, $5, $6, $7)
 //         `,
 //         [
 //           orderId,
@@ -554,17 +623,35 @@ export default router;
 //           item.finalUnitPrice,
 //           item.itemProductDiscountTotal,
 //           sellerEarnings,
+//           JSON.stringify(item.selectedAttributes || {}),
 //         ]
 //       );
 
-//       await client.query(
-//         `
-//         UPDATE product
-//         SET product_count = product_count - $1
-//         WHERE product_id = $2
-//         `,
-//         [item.qty, item.product_id]
-//       );
+//       // 🔥 STOCK UPDATE
+//       if (Object.keys(item.selectedAttributes).length > 0) {
+//         for (const [name, value] of Object.entries(item.selectedAttributes)) {
+//           await client.query(
+//             `
+//             UPDATE product_attributes
+//             SET stock = stock - $1,
+//                 sold = sold + $1
+//             WHERE product_id = $2
+//               AND attribute_name = $3
+//               AND attribute_value = $4
+//             `,
+//             [item.qty, item.product_id, name, value]
+//           );
+//         }
+//       } else {
+//         await client.query(
+//           `
+//           UPDATE product
+//           SET product_count = product_count - $1
+//           WHERE product_id = $2
+//           `,
+//           [item.qty, item.product_id]
+//         );
+//       }
 //     }
 
 //     await client.query(
@@ -580,7 +667,6 @@ export default router;
 //       [orderId, "placed", userId]
 //     );
 
-//     // mark reward promo as used
 //     if (appliedPromo && appliedPromo.is_reward_promo) {
 //       await client.query(
 //         `
@@ -603,6 +689,7 @@ export default router;
 //       delivery_charge: deliveryCharge,
 //       total_price: finalTotal,
 //     });
+
 //   } catch (err) {
 //     await client.query("ROLLBACK");
 //     console.error("ORDER CREATE ERROR:", err);

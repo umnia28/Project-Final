@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import path from "path";
+
 import authRoutes from './routes/auth.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import sellerRoutes from "./routes/seller.routes.js";
@@ -22,19 +23,18 @@ import publicProductsRoutes from "./routes/products.public.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import payoutRoutes from "./routes/payout.routes.js";
 import adminStoresRoutes from "./routes/admin.stores.routes.js";
-import promoRoutes from "./routes/promo.routes.js"
+import promoRoutes from "./routes/promo.routes.js";
 import customerRoutes from "./routes/customerRoutes.js";
 import deliveryManRoutes from "./routes/deliveryManRoutes.js";
 import contactRoutes from "./routes/contact.routes.js";
 import plusMemberRoutes from "./routes/plusMemberRoutes.js";
-import publicStoreRoutes from "./routes/publicStore.routes.js"
+import publicStoreRoutes from "./routes/publicStore.routes.js";
 import newsletterRoutes from "./routes/newsletter.routes.js";
 import reviewRoutes from "./routes/review.routes.js";
 import productQaRoutes from "./routes/product.qa.routes.js";
 import claimPromoRoutes from "./routes/claim_promo.routes.js";
-
-
-
+import sellerSalesReportRoutes from "./routes/seller.salesreport.routes.js";
+import noticeboardRoutes from "./routes/noticeboard.routes.js";
 
 dotenv.config();
 const app = express();
@@ -46,9 +46,9 @@ app.use(cors({
   ],
   credentials: true
 }));
+
 app.use(express.json());
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
-
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
@@ -67,11 +67,11 @@ app.use("/api/admin/sellers", adminSellersRoutes);
 app.use("/api/seller/products", sellerProductsRoutes);
 app.use("/api/admin/promos", adminPromosRoutes);
 app.use("/api/seller", sellerStoreRoutes);
+app.use("/api/seller", sellerSalesReportRoutes);
 app.use("/api/orders", ordersRoutes);
 app.use("/api/public/products", publicProductsRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/promos", promoRoutes);
-
 app.use("/api/customer", customerRoutes);
 app.use("/api/deliveryman", deliveryManRoutes);
 app.use("/api/contact", contactRoutes);
@@ -81,13 +81,9 @@ app.use("/api/newsletter", newsletterRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/product-qa", productQaRoutes);
 app.use("/api/claim_promo", claimPromoRoutes);
-
-
-
-
+app.use("/api/noticeboard", noticeboardRoutes);
 
 app.get('/', (req, res) => res.send('Backend is running'));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-

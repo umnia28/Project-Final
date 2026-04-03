@@ -1,4 +1,6 @@
 'use client'
+
+import { useMemo } from 'react'
 import {
   AreaChart,
   Area,
@@ -15,7 +17,14 @@ export default function OrdersAreaChart({
   storeId = null,
   title = 'Orders / Day',
 }) {
-  const getOrderDate = (order) => {
+  const formatLocalDate = (date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  const parseOrderDate = (order) => {
     const raw =
       order?.createdAt ||
       order?.created_at ||
@@ -23,17 +32,21 @@ export default function OrdersAreaChart({
       order?.order_date ||
       order?.date
 
+    if (!raw) return null
+
     const d = new Date(raw)
     if (Number.isNaN(d.getTime())) return null
 
-    return d.toISOString().split('T')[0]
+    return d
   }
 
   const orderBelongsToSeller = (order) => {
     if (!sellerId && !storeId) return true
 
     if (sellerId && String(order?.seller_id) === String(sellerId)) return true
+    if (sellerId && String(order?.sellerId) === String(sellerId)) return true
     if (storeId && String(order?.store_id) === String(storeId)) return true
+    if (storeId && String(order?.storeId) === String(storeId)) return true
 
     const items = order?.items || order?.order_items || order?.orderItems || []
 
@@ -50,22 +63,41 @@ export default function OrdersAreaChart({
     return false
   }
 
-  const filteredOrders = (allOrders || []).filter(orderBelongsToSeller)
+  const chartData = useMemo(() => {
+    const filteredOrders = (allOrders || []).filter(orderBelongsToSeller)
 
-  const ordersPerDay = filteredOrders.reduce((acc, order) => {
-    const date = getOrderDate(order)
-    if (!date) return acc
+    const ordersPerDay = filteredOrders.reduce((acc, order) => {
+      const parsedDate = parseOrderDate(order)
+      if (!parsedDate) return acc
 
-    acc[date] = (acc[date] || 0) + 1
-    return acc
-  }, {})
+      const dateKey = formatLocalDate(parsedDate)
+      acc[dateKey] = (acc[dateKey] || 0) + 1
+      return acc
+    }, {})
 
-  const chartData = Object.entries(ordersPerDay)
-    .map(([date, count]) => ({
-      date,
-      orders: count,
-    }))
-    .sort((a, b) => new Date(a.date) - new Date(b.date))
+    const sortedDates = Object.keys(ordersPerDay).sort(
+      (a, b) => new Date(a) - new Date(b)
+    )
+
+    if (sortedDates.length === 0) return []
+
+    const startDate = new Date(sortedDates[0])
+    const endDate = new Date(sortedDates[sortedDates.length - 1])
+
+    const filledData = []
+    const current = new Date(startDate)
+
+    while (current <= endDate) {
+      const key = formatLocalDate(current)
+      filledData.push({
+        date: key,
+        orders: ordersPerDay[key] || 0,
+      })
+      current.setDate(current.getDate() + 1)
+    }
+
+    return filledData
+  }, [allOrders, sellerId, storeId])
 
   return (
     <div className="w-full max-w-4xl h-[300px] text-xs">
@@ -83,7 +115,6 @@ export default function OrdersAreaChart({
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={chartData}>
           <defs>
-            {/* Sky blue → purple gradient */}
             <linearGradient id="ordersFill" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#93c5fd" stopOpacity={0.7} />
               <stop offset="50%" stopColor="#c4b5fd" stopOpacity={0.35} />

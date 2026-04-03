@@ -244,59 +244,206 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Loading from "@/components/Loading";
 import axios from "axios";
-import OrdersAreaChart from "@/components/OrdersAreaChart";
 import {
-  CircleDollarSignIcon, ShoppingBasketIcon, TagsIcon, StoreIcon,
-  SparklesIcon, ArrowUpRightIcon, StoreIcon as SellerStoreIcon, User, TrendingUp,
+  CircleDollarSignIcon,
+  ShoppingBasketIcon,
+  TagsIcon,
+  StoreIcon,
+  SparklesIcon,
+  ArrowUpRightIcon,
+  StoreIcon as SellerStoreIcon,
+  User,
+  Clock3,
+  LoaderCircle,
+  Truck,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 
 const statusStyles = {
-  placed:     { bg: "linear-gradient(135deg,#FFE4E6,#FBCFE8)", text: "#9F1239", dot: "#F43F5E" },
-  processing: { bg: "linear-gradient(135deg,#F1E7FB,#FAEAD7)", text: "#8D6DB3", dot: "#D9C2F0" },
-  shipped:    { bg: "linear-gradient(135deg,#F1E7FB,#EAF4FF)", text: "#6F5A96", dot: "#BFD7F6" },
-  delivered:  { bg: "linear-gradient(135deg,#FAEAD7,#EAF4FF)", text: "#8B6A4E", dot: "#F3D3AD" },
-  cancelled:  { bg: "linear-gradient(135deg,#F8F2FE,#EAF4FF)", text: "#6F5A96", dot: "#BFD7F6" },
+  placed: {
+    bg: "linear-gradient(135deg,#FFE4E6,#FBCFE8)",
+    text: "#BE123C",
+    dot: "#F43F5E",
+    icon: Clock3,
+  },
+  processing: {
+    bg: "linear-gradient(135deg,#FEF3C7,#FDE68A)",
+    text: "#92400E",
+    dot: "#F59E0B",
+    icon: LoaderCircle,
+  },
+  shipped: {
+    bg: "linear-gradient(135deg,#DBEAFE,#BFDBFE)",
+    text: "#1D4ED8",
+    dot: "#3B82F6",
+    icon: Truck,
+  },
+  delivered: {
+    bg: "linear-gradient(135deg,#DCFCE7,#BBF7D0)",
+    text: "#166534",
+    dot: "#22C55E",
+    icon: CheckCircle2,
+  },
+  cancelled: {
+    bg: "linear-gradient(135deg,#FEE2E2,#FECACA)",
+    text: "#991B1B",
+    dot: "#EF4444",
+    icon: XCircle,
+  },
 };
 
+const statusSteps = ["placed", "processing", "shipped", "delivered"];
+
+function getNormalizedStatus(status) {
+  const s = String(status || "placed").toLowerCase();
+  return statusStyles[s] ? s : "placed";
+}
+
 function StatusBadge({ status }) {
-  const s =
-    statusStyles[status?.toLowerCase()] || {
-      bg: "linear-gradient(135deg,#F8F2FE,#EAF4FF)",
-      text: "#6F5A96",
-      dot: "#BFD7F6",
-    };
+  const normalized = getNormalizedStatus(status);
+  const s = statusStyles[normalized];
+  const Icon = s.icon;
 
   return (
     <span
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 5,
+        gap: 6,
         background: s.bg,
         color: s.text,
         fontSize: 10,
         fontFamily: "sans-serif",
-        fontWeight: 600,
+        fontWeight: 700,
         letterSpacing: "0.08em",
         textTransform: "uppercase",
-        padding: "3px 9px",
+        padding: "5px 11px",
         borderRadius: 999,
+        animation:
+          normalized === "processing" || normalized === "shipped" || normalized === "placed"
+            ? "statusPulse 2.2s ease-in-out infinite"
+            : "none",
       }}
     >
       <span
         style={{
-          width: 5,
-          height: 5,
+          width: 16,
+          height: 16,
           borderRadius: "50%",
-          background: s.dot,
+          background: "rgba(255,255,255,0.7)",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
           flexShrink: 0,
         }}
-      />
-      {status || "placed"}
+      >
+        <Icon
+          size={10}
+          color={s.dot}
+          strokeWidth={2.4}
+          style={{
+            animation: normalized === "processing" ? "spinSlow 1.6s linear infinite" : "none",
+          }}
+        />
+      </span>
+      {normalized}
     </span>
+  );
+}
+
+function StatusProgress({ status }) {
+  const normalized = getNormalizedStatus(status);
+  const isCancelled = normalized === "cancelled";
+  const currentIndex = statusSteps.indexOf(normalized);
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4,1fr)",
+          gap: 10,
+          alignItems: "center",
+        }}
+      >
+        {statusSteps.map((step, index) => {
+          const stepStyle = statusStyles[step];
+          const active = !isCancelled && index <= currentIndex;
+          const current = !isCancelled && index === currentIndex;
+          const Icon = stepStyle.icon;
+
+          return (
+            <div key={step} style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  height: 6,
+                  width: "100%",
+                  borderRadius: 999,
+                  background: active
+                    ? stepStyle.bg
+                    : "linear-gradient(135deg,#F3F4F6,#E5E7EB)",
+                  border: active ? `1px solid ${stepStyle.dot}` : "1px solid #E5E7EB",
+                  transition: "all 0.35s ease",
+                  boxShadow: current ? `0 0 0 3px ${stepStyle.dot}22` : "none",
+                  animation: current ? "barGlow 1.8s ease-in-out infinite" : "none",
+                }}
+              />
+              <div
+                style={{
+                  marginTop: 6,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                  color: active ? stepStyle.text : "#94A3B8",
+                  fontSize: 10,
+                  fontFamily: "sans-serif",
+                  fontWeight: current ? 700 : 600,
+                  textTransform: "capitalize",
+                  transition: "all 0.35s ease",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <Icon
+                  size={11}
+                  strokeWidth={2.2}
+                  style={{
+                    animation: current && step === "processing" ? "spinSlow 1.6s linear infinite" : "none",
+                  }}
+                />
+                <span>{step}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {isCancelled && (
+        <div
+          style={{
+            marginTop: 10,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "6px 10px",
+            borderRadius: 999,
+            background: statusStyles.cancelled.bg,
+            color: statusStyles.cancelled.text,
+            fontSize: 11,
+            fontFamily: "sans-serif",
+            fontWeight: 700,
+            letterSpacing: "0.04em",
+            animation: "statusPulse 2.2s ease-in-out infinite",
+          }}
+        >
+          <XCircle size={12} color={statusStyles.cancelled.dot} strokeWidth={2.3} />
+          Order cancelled
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -308,25 +455,63 @@ export default function SellerDashboard() {
     recentOrders: [],
   });
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const res = await axios.get("http://localhost:5000/api/seller/dashboard", {
-          headers: { Authorization: `Bearer ${token}` },
-          withCredentials: true,
-        });
-        setData(res.data);
-      } catch (err) {
-        console.error("Seller dashboard load failed:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchDashboardData();
+  const fetchDashboardData = useCallback(async (showLoader = false) => {
+    try {
+      if (showLoader) setLoading(true);
+
+      const token = localStorage.getItem("token");
+      const res = await axios.get("http://localhost:5000/api/seller/dashboard", {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true,
+      });
+
+      setData({
+        stats: res.data.stats || {
+          total_products: 0,
+          total_revenue: 0,
+          total_orders: 0,
+          total_stores: 0,
+        },
+        recentOrders: res.data.recentOrders || [],
+      });
+    } catch (err) {
+      console.error("Seller dashboard load failed:", err);
+    } finally {
+      if (showLoader) setLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    fetchDashboardData(true);
+  }, [fetchDashboardData]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchDashboardData(false);
+      }
+    };
+
+    const handleFocus = () => {
+      fetchDashboardData(false);
+    };
+
+    const interval = setInterval(() => {
+      fetchDashboardData(false);
+    }, 10000);
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [fetchDashboardData]);
+
   if (loading) return <Loading />;
+
   const { stats, recentOrders } = data;
 
   const dashboardCardsData = [
@@ -378,6 +563,21 @@ export default function SellerDashboard() {
         overflow: "hidden",
       }}
     >
+      <style>{`
+        @keyframes statusPulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.03); opacity: 0.92; }
+        }
+        @keyframes spinSlow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes barGlow {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.00); }
+          50% { box-shadow: 0 0 0 4px rgba(99,102,241,0.10); }
+        }
+      `}</style>
+
       <div
         style={{
           position: "fixed",
@@ -626,242 +826,204 @@ export default function SellerDashboard() {
           ))}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 20 }}>
-          <div
-            style={{
-              background: "#FFFCF8",
-              border: "1px solid #E8E1F0",
-              borderRadius: 24,
-              padding: "28px 28px 24px",
-            }}
-          >
-            <div
+        <div
+          style={{
+            background: "#FFFCF8",
+            border: "1px solid #E8E1F0",
+            borderRadius: 24,
+            padding: "28px 24px 24px",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <div style={{ marginBottom: 20 }}>
+            <p
               style={{
-                display: "flex",
-                alignItems: "flex-start",
-                justifyContent: "space-between",
-                marginBottom: 22,
+                margin: 0,
+                fontSize: 11,
+                color: "#8D6DB3",
+                fontFamily: "sans-serif",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
               }}
             >
-              <div>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 11,
-                    color: "#8D6DB3",
-                    fontFamily: "sans-serif",
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Analytics
-                </p>
-                <h2
-                  style={{
-                    margin: "6px 0 0",
-                    fontSize: 18,
-                    fontWeight: 600,
-                    color: "#1c1917",
-                  }}
-                >
-                  Order Activity Overview
-                </h2>
-              </div>
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "5px 14px",
-                  background: "linear-gradient(135deg,#F1E7FB,#EAF4FF)",
-                  borderRadius: 999,
-                  border: "1px solid #D9C2F0",
-                  fontFamily: "sans-serif",
-                  fontSize: 11,
-                  color: "#8D6DB3",
-                  letterSpacing: "0.08em",
-                }}
-              >
-                <TrendingUp size={11} strokeWidth={2} />
-                Store trend
-              </div>
-            </div>
-            <div
+              Recent Activity
+            </p>
+            <h2
               style={{
-                background: "linear-gradient(135deg,#F8F2FE,#EAF4FF)",
-                border: "1px solid #E8E1F0",
-                borderRadius: 16,
-                padding: 16,
+                margin: "6px 0 0",
+                fontSize: 18,
+                fontWeight: 600,
+                color: "#1c1917",
               }}
             >
-              <OrdersAreaChart allOrders={recentOrders || []} title="Orders / Day" />
-            </div>
+              Recent Orders
+            </h2>
           </div>
 
-          <div
-            style={{
-              background: "#FFFCF8",
-              border: "1px solid #E8E1F0",
-              borderRadius: 24,
-              padding: "28px 24px 24px",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <div style={{ marginBottom: 20 }}>
+          {recentOrders.length === 0 ? (
+            <div
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "40px 20px",
+                textAlign: "center",
+                background: "linear-gradient(135deg,#F8F2FE,#EAF4FF)",
+                borderRadius: 16,
+                border: "1.5px dashed #D9C2F0",
+              }}
+            >
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 14,
+                  marginBottom: 14,
+                  background: "linear-gradient(135deg,#FAEAD7,#F1E7FB,#E7F1FD)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <TagsIcon size={20} color="#8D6DB3" strokeWidth={1.6} />
+              </div>
               <p
                 style={{
                   margin: 0,
-                  fontSize: 11,
+                  fontSize: 14,
+                  color: "#5C4A7A",
+                  fontWeight: 600,
+                }}
+              >
+                No recent orders
+              </p>
+              <p
+                style={{
+                  margin: "5px 0 0",
+                  fontSize: 12,
                   color: "#8D6DB3",
                   fontFamily: "sans-serif",
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
                 }}
               >
-                Recent Activity
+                Orders will appear here once placed.
               </p>
-              <h2
-                style={{
-                  margin: "6px 0 0",
-                  fontSize: 18,
-                  fontWeight: 600,
-                  color: "#1c1917",
-                }}
-              >
-                Recent Orders
-              </h2>
             </div>
+          ) : (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+                maxHeight: 520,
+                overflowY: "auto",
+                paddingRight: 4,
+              }}
+            >
+              {recentOrders.map((order) => {
+                const currentStatus = order.latest_status || order.order_status || "placed";
 
-            {recentOrders.length === 0 ? (
-              <div
-                style={{
-                  flex: 1,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "40px 20px",
-                  textAlign: "center",
-                  background: "linear-gradient(135deg,#F8F2FE,#EAF4FF)",
-                  borderRadius: 16,
-                  border: "1.5px dashed #D9C2F0",
-                }}
-              >
-                <div
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 14,
-                    marginBottom: 14,
-                    background: "linear-gradient(135deg,#FAEAD7,#F1E7FB,#E7F1FD)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <TagsIcon size={20} color="#8D6DB3" strokeWidth={1.6} />
-                </div>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 14,
-                    color: "#5C4A7A",
-                    fontWeight: 600,
-                  }}
-                >
-                  No recent orders
-                </p>
-                <p
-                  style={{
-                    margin: "5px 0 0",
-                    fontSize: 12,
-                    color: "#8D6DB3",
-                    fontFamily: "sans-serif",
-                  }}
-                >
-                  Orders will appear here once placed.
-                </p>
-              </div>
-            ) : (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                  maxHeight: 440,
-                  overflowY: "auto",
-                  paddingRight: 4,
-                }}
-              >
-                {recentOrders.map((order) => (
+                return (
                   <div
                     key={order.order_id}
                     style={{
                       background: "linear-gradient(135deg,#F8F2FE,#EAF4FF)",
                       border: "1px solid #E8E1F0",
-                      borderRadius: 16,
-                      padding: "14px 16px",
-                      transition: "transform 0.15s",
+                      borderRadius: 18,
+                      padding: "16px 18px",
+                      transition: "all 0.2s ease",
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.transform = "translateX(3px)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.transform = "translateX(0)")}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "translateY(-2px)";
+                      e.currentTarget.style.boxShadow = "0 12px 28px rgba(217,194,240,0.14)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow = "none";
+                    }}
                   >
                     <div
                       style={{
                         display: "flex",
-                        alignItems: "flex-start",
                         justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: 10,
                         gap: 12,
+                        flexWrap: "wrap",
                       }}
                     >
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
-                          <p
-                            style={{
-                              margin: 0,
-                              fontSize: 14,
-                              fontWeight: 600,
-                              color: "#1c1917",
-                            }}
-                          >
-                            Order #{order.order_id}
-                          </p>
-                          <StatusBadge status={order.latest_status || order.order_status} />
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <User size={11} color="#8D6DB3" strokeWidth={2} />
-                          <span
-                            style={{
-                              fontSize: 12,
-                              color: "#78716c",
-                              fontFamily: "sans-serif",
-                            }}
-                          >
-                            {order.customer_full_name || order.customer_username || "N/A"}
-                          </span>
-                        </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: 15,
+                            fontWeight: 600,
+                            color: "#1c1917",
+                          }}
+                        >
+                          Order #{order.order_id}
+                        </p>
+
+                        <StatusBadge status={currentStatus} />
                       </div>
+
                       <div
                         style={{
-                          flexShrink: 0,
-                          padding: "7px 14px",
+                          padding: "6px 12px",
                           background: "linear-gradient(135deg,#F3D3AD,#D9C2F0,#BFD7F6)",
                           borderRadius: 10,
-                          fontFamily: "sans-serif",
                           fontSize: 13,
                           fontWeight: 600,
                           color: "#fff",
+                          fontFamily: "sans-serif",
                         }}
                       >
                         {currency} {order.total_price}
                       </div>
                     </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: 2,
+                        gap: 12,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <User size={12} color="#8D6DB3" strokeWidth={2} />
+                        <span
+                          style={{
+                            fontSize: 13,
+                            color: "#78716c",
+                            fontFamily: "sans-serif",
+                          }}
+                        >
+                          {order.customer_full_name || order.customer_username || "N/A"}
+                        </span>
+                      </div>
+
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "#8D6DB3",
+                          fontFamily: "sans-serif",
+                        }}
+                      >
+                        Order ID: #{order.order_id}
+                      </span>
+                    </div>
+
+                    <StatusProgress status={currentStatus} />
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
