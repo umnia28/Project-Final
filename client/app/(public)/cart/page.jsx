@@ -94,7 +94,11 @@ export default function Cart() {
   const getVariantStock = (product, selectedAttributes = {}) => {
     const attrs = Array.isArray(product?.attributes) ? product.attributes : [];
 
-    if (!attrs.length || !selectedAttributes || Object.keys(selectedAttributes).length === 0) {
+    if (
+      !attrs.length ||
+      !selectedAttributes ||
+      Object.keys(selectedAttributes).length === 0
+    ) {
       return Number(product?.product_count ?? 0);
     }
 
@@ -130,11 +134,15 @@ export default function Cart() {
       );
 
       if (product) {
-<<<<<<< HEAD
         const basePrice = Number(
           product.base_price ?? product.mrp ?? product.price ?? 0
         );
-        const finalPrice = Number(product.price ?? 0);
+
+        const finalPrice = getVariantPrice(
+          product,
+          item.selectedAttributes || {}
+        );
+
         const discountPercent = Number(
           product.discount_percent ?? product.discount ?? 0
         );
@@ -144,7 +152,8 @@ export default function Cart() {
             ? Number(product.discount_amount)
             : Math.max(basePrice - finalPrice, 0);
 
-        const qty = Number(value);
+        const qty = Number(item.quantity || 0);
+
         const lineTotal = finalPrice * qty;
         const originalLineTotal = basePrice * qty;
         const lineDiscount = discountAmountPerUnit * qty;
@@ -152,6 +161,7 @@ export default function Cart() {
         newCartArray.push({
           ...product,
           quantity: qty,
+          selectedAttributes: item.selectedAttributes || {},
           base_price: basePrice,
           final_price: finalPrice,
           discount_percent: discountPercent,
@@ -162,18 +172,6 @@ export default function Cart() {
         });
 
         total += lineTotal;
-=======
-        const variantPrice = getVariantPrice(product, item.selectedAttributes);
-
-        newCartArray.push({
-          ...product,
-          quantity: Number(item.quantity || 0),
-          selectedAttributes: item.selectedAttributes || {},
-          variantPrice,
-        });
-
-        total += variantPrice * Number(item.quantity || 0);
->>>>>>> origin/shreya_branch
       }
     }
 
@@ -306,7 +304,9 @@ export default function Cart() {
 
                 return (
                   <div
-                    key={`${item.id}-${JSON.stringify(item.selectedAttributes || {})}-${idx}`}
+                    key={`${item.id ?? item.product_id}-${
+                      JSON.stringify(item.selectedAttributes || {})
+                    }-${idx}`}
                     className="group px-5 py-5 transition-colors duration-300 hover:bg-[#fafcff] sm:px-7"
                   >
                     <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -315,7 +315,7 @@ export default function Cart() {
                           <Image
                             src={itemImage}
                             className="h-[78%] w-auto object-contain transition-transform duration-500 group-hover:scale-[1.06]"
-                            alt={item.name || "Product"}
+                            alt={item.name || item.product_name || "Product"}
                             width={90}
                             height={90}
                             unoptimized={
@@ -329,7 +329,7 @@ export default function Cart() {
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <h3 className="font-display text-xl font-medium leading-tight text-slate-800">
-                              {item.name}
+                              {item.name || item.product_name}
                             </h3>
 
                             {item.discount_percent > 0 && (
@@ -345,7 +345,22 @@ export default function Cart() {
                             </p>
                           ) : null}
 
-<<<<<<< HEAD
+                          {item.selectedAttributes &&
+                          Object.keys(item.selectedAttributes).length > 0 ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {Object.entries(item.selectedAttributes).map(
+                                ([key, value]) => (
+                                  <span
+                                    key={key}
+                                    className="rounded-full bg-[#f4f0fa] px-3 py-1 text-xs font-medium text-[#7a68a8]"
+                                  >
+                                    {key}: {value}
+                                  </span>
+                                )
+                              )}
+                            </div>
+                          ) : null}
+
                           <div className="mt-2">
                             {item.discount_percent > 0 && (
                               <p className="text-sm text-slate-400 line-through">
@@ -368,19 +383,6 @@ export default function Cart() {
                               </p>
                             )}
                           </div>
-=======
-                          {item.selectedAttributes &&
-                            Object.entries(item.selectedAttributes).map(([key, value]) => (
-                              <p key={key} className="mt-1 text-xs text-slate-500">
-                                {key}: {value}
-                              </p>
-                            ))}
-
-                          <p className="mt-2 text-lg font-semibold text-slate-800">
-                            {currency}
-                            {Number(item.variantPrice ?? item.price).toLocaleString()}
-                          </p>
->>>>>>> origin/shreya_branch
 
                           <div className="mt-3">
                             {isOutOfStock ? (
@@ -414,7 +416,7 @@ export default function Cart() {
                             Quantity
                           </p>
                           <Counter
-                            productId={item.id}
+                            productId={item.id ?? item.product_id}
                             selectedAttributes={item.selectedAttributes}
                             maxQty={stock}
                           />
@@ -424,7 +426,6 @@ export default function Cart() {
                           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                             Total
                           </p>
-<<<<<<< HEAD
 
                           <div>
                             {item.discount_percent > 0 && (
@@ -446,14 +447,6 @@ export default function Cart() {
                               </p>
                             )}
                           </div>
-=======
-                          <p className="text-lg font-semibold text-slate-800">
-                            {currency}
-                            {(
-                              Number(item.variantPrice ?? item.price) * Number(item.quantity)
-                            ).toLocaleString()}
-                          </p>
->>>>>>> origin/shreya_branch
                         </div>
 
                         <div className="sm:justify-self-end">
@@ -463,7 +456,7 @@ export default function Cart() {
                           <button
                             onClick={() =>
                               handleDeleteItemFromCart(
-                                item.id,
+                                item.id ?? item.product_id,
                                 item.selectedAttributes
                               )
                             }
