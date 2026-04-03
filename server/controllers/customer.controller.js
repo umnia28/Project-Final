@@ -185,34 +185,6 @@ export const getCustomerOrders = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
-/*
-
-   //NOTIFICATIONS
-
-export const getCustomerNotifications = async (req, res) => {
-  try {
-    const userId = req.user.user_id;
-
-    const result = await pool.query(
-      `
-      SELECT
-        notification_id,
-        notification_description,
-        seen_status,
-        time_added
-      FROM notification
-      WHERE user_id = $1
-      ORDER BY time_added DESC
-      `,
-      [userId]
-    );
-
-    return res.json({ notifications: result.rows });
-  } catch (err) {
-    console.error("GET CUSTOMER NOTIFICATIONS ERROR:", err);
-    return res.status(500).json({ message: "Server error" });
-  }
-};*/
 
 
 /* =========================

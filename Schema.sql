@@ -490,6 +490,10 @@ EXECUTE FUNCTION sync_product_status_from_stock();
 -- END;
 -- $$;
 
+
+
+
+
 =======                     -- shreya'a changes
 -- ALTER TABLE notification
 -- ADD COLUMN IF NOT EXISTS product_id BIGINT
