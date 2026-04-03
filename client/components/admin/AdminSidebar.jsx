@@ -10,6 +10,7 @@ import {
   WalletIcon,
   ShoppingBasketIcon,
   CatIcon,
+  Megaphone,
   PercentSquare
 } from "lucide-react"
 import Image from "next/image"
@@ -28,6 +29,7 @@ const AdminSidebar = () => {
         { name: 'Approve Seller', href: '/admin/sellers', icon: ShieldCheckIcon },
         { name: 'Promos', href: '/admin/promos', icon: TicketPercentIcon },
         { name: 'Refunds', href: '/admin/refunds', icon: PiIcon },
+        { name: 'Noticeboard', href: '/admin/noticeboard', icon: Megaphone },
         { name: "Notifications", href: "/admin/notifications", icon: PercentSquare },
         { name: 'Payouts', href: '/admin/payouts', icon: WalletIcon },
     ]

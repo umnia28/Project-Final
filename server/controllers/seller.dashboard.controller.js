@@ -45,6 +45,7 @@ export const getSellerDashboard = async (req, res) => {
       [sellerId]
     );
 
+    // recent orders for sidebar
     const recentOrdersRes = await pool.query(
       `
       WITH latest_status AS (
@@ -58,6 +59,7 @@ export const getSellerDashboard = async (req, res) => {
       SELECT DISTINCT
         o.order_id,
         o.total_price,
+        o.date_added,
         COALESCE(ls.status_type, 'placed') AS latest_status,
         u.username AS customer_username,
         u.full_name AS customer_full_name
@@ -68,8 +70,35 @@ export const getSellerDashboard = async (req, res) => {
       LEFT JOIN latest_status ls ON ls.order_id = o.order_id
       LEFT JOIN users u ON u.user_id = o.customer_id
       WHERE s.user_id = $1
-      ORDER BY o.order_id DESC
+      ORDER BY o.date_added DESC, o.order_id DESC
       LIMIT 5
+      `,
+      [sellerId]
+    );
+
+    // full chart dataset for graph
+    const chartOrdersRes = await pool.query(
+      `
+      WITH latest_status AS (
+        SELECT DISTINCT ON (os.order_id)
+          os.order_id,
+          os.status_type,
+          os.status_time
+        FROM order_status os
+        ORDER BY os.order_id, os.status_time DESC
+      )
+      SELECT DISTINCT
+        o.order_id,
+        o.total_price,
+        o.date_added,
+        COALESCE(ls.status_type, 'placed') AS latest_status
+      FROM "order" o
+      JOIN order_item oi ON oi.order_id = o.order_id
+      JOIN product p ON p.product_id = oi.product_id
+      JOIN store s ON s.store_id = p.store_id
+      LEFT JOIN latest_status ls ON ls.order_id = o.order_id
+      WHERE s.user_id = $1
+      ORDER BY o.date_added ASC, o.order_id ASC
       `,
       [sellerId]
     );
@@ -82,6 +111,7 @@ export const getSellerDashboard = async (req, res) => {
         total_stores: totalStoresRes.rows[0]?.total_stores || 0,
       },
       recentOrders: recentOrdersRes.rows,
+      chartOrders: chartOrdersRes.rows,
     });
   } catch (err) {
     console.error("GET SELLER DASHBOARD ERROR:", err);

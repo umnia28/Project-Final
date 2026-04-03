@@ -4,11 +4,30 @@ const API = "http://localhost:5000";
 
 export const fetchDbProducts = createAsyncThunk(
   "product/fetchDbProducts",
-  async (search = "") => {
-    const res = await fetch(`${API}/api/public/products?search=${encodeURIComponent(search)}`);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Failed to load products");
-    return data.products || [];
+  async ({ search = "", page = 1 } = {}, thunkAPI) => {
+    try {
+      const res = await fetch(
+        `${API}/api/public/products?search=${encodeURIComponent(search)}&page=${page}`
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to load products");
+      }
+
+      return {
+        products: data.products || [],
+        pagination: data.pagination || {
+          page: 1,
+          limit: 30,
+          total: 0,
+          totalPages: 1,
+        },
+      };
+    } catch (err) {
+      return thunkAPI.rejectWithValue(err.message);
+    }
   }
 );
 
@@ -16,6 +35,12 @@ const productSlice = createSlice({
   name: "product",
   initialState: {
     list: [],
+    pagination: {
+      page: 1,
+      limit: 30,
+      total: 0,
+      totalPages: 1,
+    },
     loading: false,
     error: null,
   },
@@ -28,11 +53,12 @@ const productSlice = createSlice({
       })
       .addCase(fetchDbProducts.fulfilled, (state, action) => {
         state.loading = false;
-        state.list = action.payload; // ✅ ONLY DB
+        state.list = action.payload.products;
+        state.pagination = action.payload.pagination;
       })
       .addCase(fetchDbProducts.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.payload || "Failed to load products";
       });
   },
 });

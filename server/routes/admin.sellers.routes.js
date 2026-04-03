@@ -233,10 +233,22 @@ router.post("/:userId/approve", verifyToken, requireRole("admin"), async (req, r
         [
           sellerUserId,
           seller.business_name,
-          `STORE-${sellerUserId}`
+          `STORE-${sellerUserId}`,
         ]
       );
     }
+
+    // notify seller about approval
+    await client.query(
+      `
+      INSERT INTO notification (user_id, notification_description)
+      VALUES ($1, $2)
+      `,
+      [
+        sellerUserId,
+        "Your seller request has been approved ✅",
+      ]
+    );
 
     await client.query("COMMIT");
     return res.json({ message: "Seller approved ✅", user_id: sellerUserId });
@@ -266,7 +278,12 @@ router.post("/:userId/reject", verifyToken, requireRole("admin"), async (req, re
     await client.query("BEGIN");
 
     const check = await client.query(
-      `SELECT user_id, kyc_status FROM seller WHERE user_id = $1 FOR UPDATE`,
+      `
+      SELECT user_id, business_name, kyc_status
+      FROM seller
+      WHERE user_id = $1
+      FOR UPDATE
+      `,
       [sellerUserId]
     );
 
@@ -275,7 +292,9 @@ router.post("/:userId/reject", verifyToken, requireRole("admin"), async (req, re
       return res.status(404).json({ message: "Seller application not found" });
     }
 
-    if (check.rows[0].kyc_status === "rejected") {
+    const seller = check.rows[0];
+
+    if (seller.kyc_status === "rejected") {
       await client.query("COMMIT");
       return res.json({ message: "Already rejected", user_id: sellerUserId });
     }
@@ -289,6 +308,18 @@ router.post("/:userId/reject", verifyToken, requireRole("admin"), async (req, re
       WHERE user_id = $2
       `,
       [adminId, sellerUserId]
+    );
+
+    // notify seller about rejection
+    await client.query(
+      `
+      INSERT INTO notification (user_id, notification_description)
+      VALUES ($1, $2)
+      `,
+      [
+        sellerUserId,
+        "Your seller request has been rejected ❌",
+      ]
     );
 
     await client.query("COMMIT");
