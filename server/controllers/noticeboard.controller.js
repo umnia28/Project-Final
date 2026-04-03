@@ -2,9 +2,18 @@ import pool from "../db.js";
 
 // POST notice
 export const createNotice = async (req, res) => {
+  const client = await pool.connect();
+
   try {
     const adminUserId = req.user?.user_id || req.user?.id;
     const { notice_description } = req.body;
+
+    if (!adminUserId) {
+      return res.status(401).json({
+        success: false,
+        message: "Admin user id not found in token",
+      });
+    }
 
     if (!notice_description || !notice_description.trim()) {
       return res.status(400).json({
@@ -13,7 +22,25 @@ export const createNotice = async (req, res) => {
       });
     }
 
-    const result = await pool.query(
+    const adminCheck = await client.query(
+      `
+      SELECT user_id
+      FROM admin
+      WHERE user_id = $1
+      `,
+      [adminUserId]
+    );
+
+    if (adminCheck.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Admin user_id ${adminUserId} does not exist in admin table`,
+      });
+    }
+
+    await client.query("BEGIN");
+
+    const noticeResult = await client.query(
       `
       INSERT INTO noticeboard (admin_user_id, notice_description)
       VALUES ($1, $2)
@@ -22,17 +49,53 @@ export const createNotice = async (req, res) => {
       [adminUserId, notice_description.trim()]
     );
 
+    const notice = noticeResult.rows[0];
+
+    // get all customers
+    const customerResult = await client.query(
+      `
+      SELECT user_id
+      FROM customer
+      `
+    );
+
+    for (const customer of customerResult.rows) {
+      await client.query(
+        `
+        INSERT INTO notification (
+          user_id,
+          product_id,
+          notice_id,
+          notification_description,
+          seen_status,
+          time_added
+        )
+        VALUES ($1, NULL, $2, $3, FALSE, NOW())
+        `,
+        [
+          customer.user_id,
+          notice.notice_id,
+          `📢 ${notice.notice_description}`,
+        ]
+      );
+    }
+
+    await client.query("COMMIT");
+
     return res.status(201).json({
       success: true,
-      message: "Announcement posted successfully",
-      notice: result.rows[0],
+      message: "Announcement posted successfully and sent to all customers",
+      notice,
     });
   } catch (error) {
+    await client.query("ROLLBACK");
     console.error("CREATE NOTICE ERROR:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to create announcement",
+      message: error.message || "Failed to create announcement",
     });
+  } finally {
+    client.release();
   }
 };
 
@@ -81,10 +144,7 @@ export const deleteNotice = async (req, res) => {
       });
     }
 
-    await pool.query(
-      `DELETE FROM noticeboard WHERE notice_id = $1`,
-      [id]
-    );
+    await pool.query(`DELETE FROM noticeboard WHERE notice_id = $1`, [id]);
 
     return res.json({
       success: true,

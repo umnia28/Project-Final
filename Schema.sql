@@ -584,6 +584,10 @@ EXECUTE FUNCTION sync_product_status_from_stock();
 -- $$;
 
 
+ALTER TABLE notification
+ADD COLUMN IF NOT EXISTS notice_id BIGINT NULL REFERENCES noticeboard(notice_id) ON DELETE CASCADE;
+
+
 
 
 
