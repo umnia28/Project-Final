@@ -494,11 +494,13 @@ EXECUTE FUNCTION sync_product_status_from_stock();
 
 
 
-=======                     -- shreya'a changes
+=======  -- shreya'a changes
 -- ALTER TABLE notification
 -- ADD COLUMN IF NOT EXISTS product_id BIGINT
 -- REFERENCES product(product_id) ON DELETE CASCADE;
 
+
+//Function
 -- CREATE OR REPLACE FUNCTION create_seller_product(
 --     p_seller_id BIGINT,
 --     p_store_id BIGINT,
