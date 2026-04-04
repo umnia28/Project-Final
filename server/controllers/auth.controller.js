@@ -65,7 +65,6 @@ export const registerUser = async (req, res) => {
 
     const user = rows[0];
 
-    //new users are customers by default
     await pool.query(
       `INSERT INTO customer(user_id) VALUES ($1) ON CONFLICT DO NOTHING`,
       [user.user_id]

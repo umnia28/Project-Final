@@ -31,6 +31,20 @@ export default function AdminOrdersPage() {
       .replaceAll("_", " ")
       .replace(/\b\w/g, (c) => c.toUpperCase());
 
+  const isPaidLike = (status) =>
+    ["paid", "partially_refunded", "refunded"].includes(
+      String(status || "").toLowerCase()
+    );
+
+  const safeJson = async (res) => {
+    const text = await res.text();
+    try {
+      return text ? JSON.parse(text) : {};
+    } catch {
+      throw new Error("Server returned invalid response");
+    }
+  };
+
   const loadOrders = async () => {
     const token = localStorage.getItem("token");
 
@@ -38,7 +52,7 @@ export default function AdminOrdersPage() {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    const data = await res.json();
+    const data = await safeJson(res);
     if (!res.ok) throw new Error(data.message || "Failed to load admin orders");
 
     setOrdersRaw(data.orders || []);
@@ -51,7 +65,7 @@ export default function AdminOrdersPage() {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    const data = await res.json();
+    const data = await safeJson(res);
     if (!res.ok) throw new Error(data.message || "Failed to load delivery men");
 
     setDeliveryMen(data.deliveryMen || []);
@@ -69,12 +83,27 @@ export default function AdminOrdersPage() {
   }, []);
 
   const orders = useMemo(() => {
-    return ordersRaw.map((o) => ({
-      ...o,
-      selectedDeliveryManId:
-        selectedDeliveryMan[o.order_id] ??
-        (o.delivery_man_id ? String(o.delivery_man_id) : ""),
-    }));
+    return ordersRaw.map((o) => {
+      const hasCancelledItems =
+        Array.isArray(o.items) &&
+        o.items.some(
+          (item) =>
+            String(item?.seller_status || "").toLowerCase() === "cancelled" ||
+            String(item?.cancelled_by || "").trim() !== ""
+        );
+
+      const hasRefund =
+        isPaidLike(o.payment_status) && Number(o.refund_amount || 0) > 0;
+
+      return {
+        ...o,
+        hasCancelledItems,
+        hasRefund,
+        selectedDeliveryManId:
+          selectedDeliveryMan[o.order_id] ??
+          (o.delivery_man_id ? String(o.delivery_man_id) : ""),
+      };
+    });
   }, [ordersRaw, selectedDeliveryMan]);
 
   const handleAssign = async (orderId) => {
@@ -103,7 +132,7 @@ export default function AdminOrdersPage() {
         }
       );
 
-      const data = await res.json();
+      const data = await safeJson(res);
       if (!res.ok) throw new Error(data.message || "Failed to assign delivery man");
 
       toast.success(data.message || "Delivery man assigned successfully");
@@ -134,7 +163,7 @@ export default function AdminOrdersPage() {
         body: JSON.stringify({ reason }),
       });
 
-      const data = await res.json();
+      const data = await safeJson(res);
       if (!res.ok) throw new Error(data.message || "Failed to cancel order");
 
       toast.success(data.message || "Order cancelled");
@@ -155,7 +184,9 @@ export default function AdminOrdersPage() {
 
       const token = localStorage.getItem("token");
 
-      const res = await fetch(`${API}/api/admin/orders/${orderId}/refund`, {
+      // Backend has no separate /refund route.
+      // Admin cancel route already handles refund calculation/status updates.
+      const res = await fetch(`${API}/api/admin/orders/${orderId}/cancel`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -164,7 +195,7 @@ export default function AdminOrdersPage() {
         body: JSON.stringify({ reason }),
       });
 
-      const data = await res.json();
+      const data = await safeJson(res);
       if (!res.ok) throw new Error(data.message || "Failed to refund order");
 
       toast.success(data.message || "Refund processed");
@@ -262,7 +293,7 @@ export default function AdminOrdersPage() {
                     </div>
 
                     <div className="flex gap-2 flex-wrap justify-end">
-                      {Number(o.refund_amount || 0) > 0 && (
+                      {o.hasRefund && (
                         <span className="px-3 py-1.5 rounded-full bg-gradient-to-r from-[#fee2e2] to-[#fff1f2] text-rose-700 text-sm font-medium">
                           Refund amount: ৳{Number(o.refund_amount || 0).toLocaleString()}
                         </span>
@@ -277,6 +308,7 @@ export default function AdminOrdersPage() {
                       </span>
 
                       <span className="px-3 py-1.5 rounded-full bg-gradient-to-r from-[#faf8ef] to-[#f5f5dc] text-amber-700 text-sm font-medium">
+                        {o.hasCancelledItems || o.hasRefund ? "Remaining Total: " : "Total: "}
                         ৳{Number(o.total_price || 0).toLocaleString()}
                       </span>
                     </div>
@@ -359,12 +391,15 @@ export default function AdminOrdersPage() {
                               <th className="py-3 px-4">Discount</th>
                               <th className="py-3 px-4">Item Status</th>
                               <th className="py-3 px-4">Cancelled By</th>
+                              <th className="py-3 px-4">Refunded</th>
                             </tr>
                           </thead>
                           <tbody>
                             {o.items.map((l) => {
                               const itemStatus =
-                                l.seller_status === "cancelled"
+                                String(l.refund_status || "").toLowerCase() === "refunded"
+                                  ? "refunded"
+                                  : String(l.seller_status || "").toLowerCase() === "cancelled"
                                   ? "cancelled"
                                   : l.delivery_status || l.seller_status || "pending";
 
@@ -396,7 +431,7 @@ export default function AdminOrdersPage() {
                                           ? "bg-emerald-100 text-emerald-700"
                                           : itemStatus === "out_for_delivery"
                                           ? "bg-sky-100 text-sky-700"
-                                          : itemStatus === "confirmed"
+                                          : itemStatus === "confirmed" || itemStatus === "shipment_ready"
                                           ? "bg-amber-100 text-amber-700"
                                           : "bg-slate-100 text-slate-700"
                                       }`}
@@ -407,6 +442,12 @@ export default function AdminOrdersPage() {
 
                                   <td className="py-3 px-4 text-center text-slate-600">
                                     {l.cancelled_by ? formatText(l.cancelled_by) : "-"}
+                                  </td>
+
+                                  <td className="py-3 px-4 text-center text-slate-600">
+                                    {Number(l.refunded_amount || 0) > 0
+                                      ? `৳${Number(l.refunded_amount || 0).toLocaleString()}`
+                                      : "-"}
                                   </td>
                                 </tr>
                               );

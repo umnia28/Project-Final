@@ -381,6 +381,162 @@ export const updateDeliveryProfile = async (req, res) => {
 /* =========================
    UPDATE ORDER STATUS
 ========================= */
+// export const updateDeliveryOrderStatus = async (req, res) => {
+//   const { orderId } = req.params;
+//   const { delivery_status } = req.body;
+//   const deliverymanId = req.user.user_id;
+
+//   const client = await pool.connect();
+
+//   try {
+//     await client.query("BEGIN");
+
+//     // update order items
+//     await client.query(
+//       `
+//       UPDATE order_item
+//       SET delivery_status = $1
+//       WHERE order_id = $2
+//         AND cancelled_by IS NULL
+//       `,
+//       [delivery_status, orderId]
+//     );
+
+//     // =========================
+//     //  DELIVERED LOGIC
+//     // =========================
+//     if (delivery_status === "delivered") {
+//       // set delivery time
+//       await client.query(
+//         `
+//         UPDATE "order"
+//         SET delivery_time = NOW()
+//         WHERE order_id = $1
+//         `,
+//         [orderId]
+//       );
+
+//       // update delivery man's total delivered count
+//       await client.query(
+//                 `
+//           UPDATE delivery_man
+//           SET total_orders = total_orders + 1
+//           WHERE user_id = (
+//             SELECT delivery_man_id
+//             FROM "order"
+//             WHERE order_id = $1
+//           )
+//           `,
+//         [orderId]
+//       );
+//       // COD → mark paid
+//       const orderInfoRes = await client.query(
+//         `
+//         SELECT payment_method, payment_status
+//         FROM "order"
+//         WHERE order_id = $1
+//         `,
+//         [orderId]
+//       );
+
+//       const orderInfo = orderInfoRes.rows[0];
+
+//       const isCod =
+//         String(orderInfo.payment_method).toLowerCase() === "cod";
+//       const isUnpaid =
+//         String(orderInfo.payment_status).toLowerCase() === "unpaid";
+
+//       if (isCod && isUnpaid) {
+//         await client.query(
+//           `
+//           UPDATE "order"
+//           SET payment_status = 'paid'
+//           WHERE order_id = $1
+//           `,
+//           [orderId]
+//         );
+//       }
+
+//       // =========================
+//       // POINTS LOGIC
+//       // =========================
+
+//       const orderRes = await client.query(
+//         `
+//         SELECT customer_id, total_price, points_awarded
+//         FROM "order"
+//         WHERE order_id = $1
+//         `,
+//         [orderId]
+//       );
+
+//       const order = orderRes.rows[0];
+
+//       if (order && !order.points_awarded && Number(order.total_price) > 100) {
+//         const customerRes = await client.query(
+//           `
+//           SELECT user_id, is_plus_member, plus_expiry, points
+//           FROM customer
+//           WHERE user_id = $1
+//           `,
+//           [order.customer_id]
+//         );
+
+//         if (customerRes.rows.length > 0) {
+//           const customer = customerRes.rows[0];
+
+//           let earnedPoints = 20;
+
+//           const isPlusActive =
+//             customer.is_plus_member &&
+//             customer.plus_expiry &&
+//             new Date(customer.plus_expiry) > new Date();
+
+//           if (isPlusActive) {
+//             earnedPoints = 40;
+//           }
+
+//           await client.query(
+//             `
+//             UPDATE customer
+//             SET points = COALESCE(points, 0) + $1
+//             WHERE user_id = $2
+//             `,
+//             [earnedPoints, order.customer_id]
+//           );
+
+//           await client.query(
+//             `
+//             UPDATE "order"
+//             SET points_awarded = TRUE
+//             WHERE order_id = $1
+//             `,
+//             [orderId]
+//           );
+//         }
+//       }
+//     }
+
+//     await client.query("COMMIT");
+
+//     return res.json({
+//       success: true,
+//       message: `Order marked as ${delivery_status}`,
+//     });
+
+//   } catch (error) {
+//     await client.query("ROLLBACK");
+
+//     console.error("UPDATE DELIVERY ORDER STATUS ERROR:", error);
+
+//     return res.status(500).json({
+//       success: false,
+//       message: "Failed to update delivery status",
+//     });
+//   } finally {
+//     client.release();
+//   }
+// };
 export const updateDeliveryOrderStatus = async (req, res) => {
   const { orderId } = req.params;
   const { delivery_status } = req.body;
@@ -391,27 +547,61 @@ export const updateDeliveryOrderStatus = async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    // update order items
-    await client.query(
+    // only allow the assigned delivery man to update this order
+    const updateItemsRes = await client.query(
       `
-      UPDATE order_item
+      UPDATE order_item oi
       SET delivery_status = $1
-      WHERE order_id = $2
-        AND cancelled_by IS NULL
+      FROM "order" o
+      WHERE oi.order_id = o.order_id
+        AND o.order_id = $2
+        AND o.delivery_man_id = $3
+        AND oi.cancelled_by IS NULL
       `,
-      [delivery_status, orderId]
+      [delivery_status, orderId, deliverymanId]
     );
 
+    if (updateItemsRes.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({
+        success: false,
+        message: "You are not assigned to this order or no active items were found",
+      });
+    }
+
     // =========================
-    // 🚚 DELIVERED LOGIC
+    // DELIVERED LOGIC
     // =========================
     if (delivery_status === "delivered") {
-      // set delivery time
-      await client.query(
+      // set delivery time only for assigned delivery man's order
+      const updateOrderRes = await client.query(
         `
         UPDATE "order"
         SET delivery_time = NOW()
         WHERE order_id = $1
+          AND delivery_man_id = $2
+        `,
+        [orderId, deliverymanId]
+      );
+
+      if (updateOrderRes.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return res.status(403).json({
+          success: false,
+          message: "You are not assigned to this order",
+        });
+      }
+
+      // update delivery man's total delivered count
+      await client.query(
+        `
+        UPDATE delivery_man
+        SET total_orders = total_orders + 1
+        WHERE user_id = (
+          SELECT delivery_man_id
+          FROM "order"
+          WHERE order_id = $1
+        )
         `,
         [orderId]
       );
@@ -422,16 +612,25 @@ export const updateDeliveryOrderStatus = async (req, res) => {
         SELECT payment_method, payment_status
         FROM "order"
         WHERE order_id = $1
+          AND delivery_man_id = $2
         `,
-        [orderId]
+        [orderId, deliverymanId]
       );
 
       const orderInfo = orderInfoRes.rows[0];
 
+      if (!orderInfo) {
+        await client.query("ROLLBACK");
+        return res.status(403).json({
+          success: false,
+          message: "You are not assigned to this order",
+        });
+      }
+
       const isCod =
-        String(orderInfo.payment_method).toLowerCase() === "cod";
+        String(orderInfo.payment_method || "").toLowerCase() === "cod";
       const isUnpaid =
-        String(orderInfo.payment_status).toLowerCase() === "unpaid";
+        String(orderInfo.payment_status || "").toLowerCase() === "unpaid";
 
       if (isCod && isUnpaid) {
         await client.query(
@@ -439,22 +638,23 @@ export const updateDeliveryOrderStatus = async (req, res) => {
           UPDATE "order"
           SET payment_status = 'paid'
           WHERE order_id = $1
+            AND delivery_man_id = $2
           `,
-          [orderId]
+          [orderId, deliverymanId]
         );
       }
 
       // =========================
-      // 🎁 POINTS LOGIC
+      // POINTS LOGIC
       // =========================
-
       const orderRes = await client.query(
         `
         SELECT customer_id, total_price, points_awarded
         FROM "order"
         WHERE order_id = $1
+          AND delivery_man_id = $2
         `,
-        [orderId]
+        [orderId, deliverymanId]
       );
 
       const order = orderRes.rows[0];
@@ -497,8 +697,9 @@ export const updateDeliveryOrderStatus = async (req, res) => {
             UPDATE "order"
             SET points_awarded = TRUE
             WHERE order_id = $1
+              AND delivery_man_id = $2
             `,
-            [orderId]
+            [orderId, deliverymanId]
           );
         }
       }
@@ -510,7 +711,6 @@ export const updateDeliveryOrderStatus = async (req, res) => {
       success: true,
       message: `Order marked as ${delivery_status}`,
     });
-
   } catch (error) {
     await client.query("ROLLBACK");
 
