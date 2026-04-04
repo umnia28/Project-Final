@@ -28,6 +28,7 @@ router.get("/", async (req, res) => {
       JOIN users u ON u.user_id = st.user_id
       WHERE p.visibility_status = TRUE
         AND p.status = 'active'
+        AND st.store_status = 'active'
         AND ($1 = '' OR p.product_name ILIKE '%' || $1 || '%')
       `,
       [search]
@@ -73,6 +74,7 @@ router.get("/", async (req, res) => {
 
       WHERE p.visibility_status = TRUE
         AND p.status = 'active'
+        AND st.store_status = 'active'
         AND ($1 = '' OR p.product_name ILIKE '%' || $1 || '%')
 
       GROUP BY
@@ -241,6 +243,7 @@ router.get("/:id", async (req, res) => {
       WHERE p.product_id = $1
         AND p.status = 'active'
         AND p.visibility_status = TRUE
+        AND st.store_status = 'active'
       `,
       [productId]
     );
@@ -295,7 +298,6 @@ router.get("/:id", async (req, res) => {
 });
 
 export default router;
-
 
 // import express from "express";
 // import pool from "../db.js";

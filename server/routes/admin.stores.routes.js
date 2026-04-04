@@ -48,6 +48,8 @@ router.get("/", verifyToken, isAdmin, async (req, res) => {
    body: { store_status: "active" | "inactive" }
 ========================= */
 router.patch("/:storeId/status", verifyToken, isAdmin, async (req, res) => {
+  const client = await pool.connect();
+
   try {
     const { storeId } = req.params;
     const { store_status } = req.body;
@@ -66,7 +68,9 @@ router.patch("/:storeId/status", verifyToken, isAdmin, async (req, res) => {
       });
     }
 
-    const result = await pool.query(
+    await client.query("BEGIN");
+
+    const result = await client.query(
       `
       UPDATE store
       SET store_status = $1
@@ -77,23 +81,43 @@ router.patch("/:storeId/status", verifyToken, isAdmin, async (req, res) => {
     );
 
     if (result.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({
         success: false,
         message: "Store not found",
       });
     }
 
+    if (store_status === "inactive") {
+      await client.query(
+        `
+        UPDATE product
+        SET status = 'inactive'
+        WHERE store_id = $1
+        `,
+        [storeId]
+      );
+    }
+
+    await client.query("COMMIT");
+
     return res.json({
       success: true,
-      message: `Store ${store_status === "active" ? "activated" : "deactivated"} successfully`,
+      message:
+        store_status === "active"
+          ? "Store activated successfully"
+          : "Store deactivated successfully and all its products were set to inactive",
       store: result.rows[0],
     });
   } catch (error) {
+    await client.query("ROLLBACK");
     console.error("UPDATE STORE STATUS ERROR:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to update store status",
     });
+  } finally {
+    client.release();
   }
 });
 

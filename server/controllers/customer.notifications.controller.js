@@ -14,11 +14,12 @@ export const getCustomerNotifications = async (req, res) => {
         notification_id,
         notification_description,
         product_id,
+        notice_id,
         seen_status,
         time_added
       FROM notification
       WHERE user_id = $1
-      ORDER BY time_added DESC
+      ORDER BY time_added DESC, notification_id DESC
       `,
       [customerId]
     );
@@ -48,7 +49,7 @@ export const getCustomerUnreadNotificationCount = async (req, res) => {
       [customerId]
     );
 
-    return res.json({ unread_count: rows[0].unread_count });
+    return res.json({ unread_count: rows[0]?.unread_count || 0 });
   } catch (err) {
     console.error("GET CUSTOMER UNREAD NOTIFICATION COUNT ERROR:", err);
     return res.status(500).json({ message: "Server error" });
@@ -74,6 +75,7 @@ export const markCustomerNotificationSeen = async (req, res) => {
         notification_id,
         notification_description,
         product_id,
+        notice_id,
         seen_status,
         time_added
       `,

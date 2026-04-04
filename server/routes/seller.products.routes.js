@@ -19,6 +19,47 @@ const assertOwnProduct = async (sellerId, productId) => {
   return rows.length > 0;
 };
 
+// helper: ensure store belongs to seller and is active
+const getOwnStore = async (sellerId, storeId) => {
+  const { rows } = await pool.query(
+    `
+    SELECT store_id, user_id, store_status
+    FROM store
+    WHERE store_id = $1 AND user_id = $2
+    `,
+    [storeId, sellerId]
+  );
+  return rows[0] || null;
+};
+
+/**
+ * GET /api/seller/products/categories
+ * Show all visible categories so seller can choose category_id easily
+ */
+router.get("/categories", verifyToken, requireRole("seller"), async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `
+      SELECT
+        category_id,
+        category_name,
+        category_description,
+        category_img,
+        visibility_status,
+        parent_category_id
+      FROM category
+      WHERE visibility_status = TRUE
+      ORDER BY category_name ASC, category_id ASC
+      `
+    );
+
+    return res.json({ categories: rows });
+  } catch (e) {
+    console.error("GET SELLER CATEGORIES ERROR:", e);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
 /**
  * GET /api/seller/products
  */
@@ -38,9 +79,11 @@ router.get("/", verifyToken, requireRole("seller"), async (req, res) => {
         p.visibility_status,
         p.date_added,
         p.category_id,
+        c.category_name,
         p.product_description,
         st.store_id,
         st.store_name,
+        st.store_status,
         (
           SELECT image_url
           FROM product_image pi
@@ -55,6 +98,7 @@ router.get("/", verifyToken, requireRole("seller"), async (req, res) => {
         )::INT AS attribute_count
       FROM product p
       JOIN store st ON st.store_id = p.store_id
+      LEFT JOIN category c ON c.category_id = p.category_id
       WHERE st.user_id = $1
       ORDER BY p.date_added DESC
       `,
@@ -88,6 +132,18 @@ router.post("/", verifyToken, requireRole("seller"), async (req, res) => {
     if (!store_id || !product_name || price === undefined) {
       return res.status(400).json({
         message: "store_id, product_name, price required",
+      });
+    }
+
+    const store = await getOwnStore(sellerId, store_id);
+
+    if (!store) {
+      return res.status(403).json({ message: "Not your store" });
+    }
+
+    if (store.store_status !== "active") {
+      return res.status(403).json({
+        message: "Cannot add product to an inactive store",
       });
     }
 
@@ -143,8 +199,11 @@ router.post("/", verifyToken, requireRole("seller"), async (req, res) => {
 
 /**
  * PUT /api/seller/products/:id
+ * Fully update product like add-product form
  */
 router.put("/:id", verifyToken, requireRole("seller"), async (req, res) => {
+  const client = await pool.connect();
+
   try {
     const sellerId = req.user.user_id;
     const productId = Number(req.params.id);
@@ -157,6 +216,7 @@ router.put("/:id", verifyToken, requireRole("seller"), async (req, res) => {
     if (!ok) return res.status(403).json({ message: "Not your product" });
 
     const {
+      store_id,
       category_id = null,
       product_name,
       price,
@@ -165,22 +225,46 @@ router.put("/:id", verifyToken, requireRole("seller"), async (req, res) => {
       discount,
       status,
       visibility_status,
+      images = [],
     } = req.body;
 
-    const result = await pool.query(
+    if (!store_id || !product_name || price === undefined) {
+      return res.status(400).json({
+        message: "store_id, product_name, price required",
+      });
+    }
+
+    const store = await getOwnStore(sellerId, store_id);
+
+    if (!store) {
+      return res.status(403).json({ message: "Not your store" });
+    }
+
+    if (store.store_status !== "active") {
+      return res.status(403).json({
+        message: "Cannot move/update product under an inactive store",
+      });
+    }
+
+    await client.query("BEGIN");
+
+    const result = await client.query(
       `
       UPDATE product
-      SET category_id = COALESCE($1, category_id),
-          product_name = COALESCE($2, product_name),
-          price = COALESCE($3, price),
-          product_description = COALESCE($4, product_description),
-          product_count = COALESCE($5, product_count),
-          discount = COALESCE($6, discount),
-          status = COALESCE($7, status),
-          visibility_status = COALESCE($8, visibility_status)
-      WHERE product_id = $9
+      SET store_id = $1,
+          category_id = $2,
+          product_name = $3,
+          price = $4,
+          product_description = $5,
+          product_count = $6,
+          discount = $7,
+          status = COALESCE($8, status),
+          visibility_status = COALESCE($9, visibility_status)
+      WHERE product_id = $10
+      RETURNING product_id
       `,
       [
+        store_id,
         category_id,
         product_name,
         price,
@@ -194,13 +278,40 @@ router.put("/:id", verifyToken, requireRole("seller"), async (req, res) => {
     );
 
     if (result.rowCount === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ message: "Product not found" });
     }
 
-    res.json({ message: "Product updated ✅" });
+    await client.query(`DELETE FROM product_image WHERE product_id = $1`, [productId]);
+
+    const cleanedImages = Array.isArray(images)
+      ? images.map((img) => String(img).trim()).filter(Boolean)
+      : [];
+
+    for (const imageUrl of cleanedImages) {
+      await client.query(
+        `
+        INSERT INTO product_image (product_id, image_url)
+        VALUES ($1, $2)
+        `,
+        [productId, imageUrl]
+      );
+    }
+
+    await client.query("COMMIT");
+
+    res.json({
+      message: "Product updated ✅",
+      product: {
+        product_id: result.rows[0].product_id,
+      },
+    });
   } catch (e) {
+    await client.query("ROLLBACK");
     console.error(e);
     res.status(500).json({ message: e.message || "Server error" });
+  } finally {
+    client.release();
   }
 });
 
@@ -232,18 +343,6 @@ router.post("/:id/attributes", verifyToken, requireRole("seller"), async (req, r
     for (const attr of attributes) {
       const attribute_name = attr?.attribute_name?.trim();
       const attribute_value = attr?.attribute_value?.trim();
-      const new_price =
-        attr?.new_price === null || attr?.new_price === undefined || attr?.new_price === ""
-          ? null
-          : Number(attr.new_price);
-      const stock =
-        attr?.stock === null || attr?.stock === undefined || attr?.stock === ""
-          ? 0
-          : Number(attr.stock);
-      const sold =
-        attr?.sold === null || attr?.sold === undefined || attr?.sold === ""
-          ? 0
-          : Number(attr.sold);
       const base_spec = Boolean(attr?.base_spec);
 
       if (!attribute_name || !attribute_value) {
@@ -253,35 +352,17 @@ router.post("/:id/attributes", verifyToken, requireRole("seller"), async (req, r
         });
       }
 
-      if (new_price !== null && Number.isNaN(new_price)) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({ message: "new_price must be a valid number or null" });
-      }
-
-      if (!Number.isInteger(stock) || stock < 0) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({ message: "stock must be integer >= 0" });
-      }
-
-      if (!Number.isInteger(sold) || sold < 0) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({ message: "sold must be integer >= 0" });
-      }
-
       await client.query(
         `
         INSERT INTO product_attributes
-          (product_id, attribute_name, attribute_value, new_price, stock, sold, base_spec)
+          (product_id, attribute_name, attribute_value, base_spec)
         VALUES
-          ($1, $2, $3, $4, $5, $6, $7)
+          ($1, $2, $3, $4)
         ON CONFLICT (product_id, attribute_name, attribute_value)
         DO UPDATE SET
-          new_price = EXCLUDED.new_price,
-          stock = EXCLUDED.stock,
-          sold = EXCLUDED.sold,
           base_spec = EXCLUDED.base_spec
         `,
-        [productId, attribute_name, attribute_value, new_price, stock, sold, base_spec]
+        [productId, attribute_name, attribute_value, base_spec]
       );
     }
 
@@ -326,18 +407,6 @@ router.put("/:id/attributes", verifyToken, requireRole("seller"), async (req, re
     for (const attr of attributes) {
       const attribute_name = attr?.attribute_name?.trim();
       const attribute_value = attr?.attribute_value?.trim();
-      const new_price =
-        attr?.new_price === null || attr?.new_price === undefined || attr?.new_price === ""
-          ? null
-          : Number(attr.new_price);
-      const stock =
-        attr?.stock === null || attr?.stock === undefined || attr?.stock === ""
-          ? 0
-          : Number(attr.stock);
-      const sold =
-        attr?.sold === null || attr?.sold === undefined || attr?.sold === ""
-          ? 0
-          : Number(attr.sold);
       const base_spec = Boolean(attr?.base_spec);
 
       if (!attribute_name || !attribute_value) {
@@ -347,29 +416,14 @@ router.put("/:id/attributes", verifyToken, requireRole("seller"), async (req, re
         });
       }
 
-      if (new_price !== null && Number.isNaN(new_price)) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({ message: "new_price must be a valid number or null" });
-      }
-
-      if (!Number.isInteger(stock) || stock < 0) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({ message: "stock must be integer >= 0" });
-      }
-
-      if (!Number.isInteger(sold) || sold < 0) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({ message: "sold must be integer >= 0" });
-      }
-
       await client.query(
         `
         INSERT INTO product_attributes
-          (product_id, attribute_name, attribute_value, new_price, stock, sold, base_spec)
+          (product_id, attribute_name, attribute_value, base_spec)
         VALUES
-          ($1, $2, $3, $4, $5, $6, $7)
+          ($1, $2, $3, $4)
         `,
-        [productId, attribute_name, attribute_value, new_price, stock, sold, base_spec]
+        [productId, attribute_name, attribute_value, base_spec]
       );
     }
 
@@ -405,9 +459,6 @@ router.get("/:id/attributes", verifyToken, requireRole("seller"), async (req, re
         product_id,
         attribute_name,
         attribute_value,
-        new_price,
-        stock,
-        sold,
         base_spec
       FROM product_attributes
       WHERE product_id = $1
@@ -448,7 +499,6 @@ router.delete("/:id", verifyToken, requireRole("seller"), async (req, res) => {
  * PUT /api/seller/products/:id/stock
  */
 router.put("/:id/stock", verifyToken, requireRole("seller"), async (req, res) => {
-  const client = await pool.connect();
   try {
     const sellerId = req.user.user_id;
     const productId = Number(req.params.id);
@@ -456,51 +506,23 @@ router.put("/:id/stock", verifyToken, requireRole("seller"), async (req, res) =>
     const ok = await assertOwnProduct(sellerId, productId);
     if (!ok) return res.status(403).json({ message: "Not your product" });
 
-    const { product_count, attribute_name, attribute_value, stock } = req.body;
+    const { product_count } = req.body;
 
-    await client.query("BEGIN");
-
-    if (product_count !== undefined) {
-      const pc = Number(product_count);
-      if (!Number.isInteger(pc) || pc < 0) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({ message: "product_count must be integer >= 0" });
-      }
-
-      await client.query(`UPDATE product SET product_count=$1 WHERE product_id=$2`, [pc, productId]);
-      await client.query("COMMIT");
-      return res.json({ message: "Base stock updated ✅" });
+    if (product_count === undefined) {
+      return res.status(400).json({ message: "product_count is required" });
     }
 
-    if (!attribute_name || !attribute_value || stock === undefined) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ message: "Provide product_count OR (attribute_name, attribute_value, stock)" });
+    const pc = Number(product_count);
+    if (!Number.isInteger(pc) || pc < 0) {
+      return res.status(400).json({ message: "product_count must be integer >= 0" });
     }
 
-    const st = Number(stock);
-    if (!Number.isInteger(st) || st < 0) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ message: "stock must be integer >= 0" });
-    }
+    await pool.query(`UPDATE product SET product_count=$1 WHERE product_id=$2`, [pc, productId]);
 
-    await client.query(
-      `
-      INSERT INTO product_attributes (product_id, attribute_name, attribute_value, stock)
-      VALUES ($1,$2,$3,$4)
-      ON CONFLICT (product_id, attribute_name, attribute_value)
-      DO UPDATE SET stock = EXCLUDED.stock
-      `,
-      [productId, attribute_name, attribute_value, st]
-    );
-
-    await client.query("COMMIT");
-    res.json({ message: "Variant stock updated ✅" });
+    return res.json({ message: "Base stock updated ✅" });
   } catch (e) {
-    await client.query("ROLLBACK");
     console.error(e);
     res.status(500).json({ message: "Server error" });
-  } finally {
-    client.release();
   }
 });
 
@@ -532,9 +554,6 @@ router.get("/:id", verifyToken, requireRole("seller"), async (req, res) => {
               json_build_object(
                 'attribute_name', pa.attribute_name,
                 'attribute_value', pa.attribute_value,
-                'new_price', pa.new_price,
-                'stock', pa.stock,
-                'sold', pa.sold,
                 'base_spec', pa.base_spec
               )
               ORDER BY pa.attribute_name, pa.attribute_value
@@ -549,6 +568,10 @@ router.get("/:id", verifyToken, requireRole("seller"), async (req, res) => {
       `,
       [productId]
     );
+
+    if (!rows.length) {
+      return res.status(404).json({ message: "Product not found" });
+    }
 
     res.json({ product: rows[0] });
   } catch (e) {
