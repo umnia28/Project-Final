@@ -1,24 +1,28 @@
-
-CHARIS ATELIER -  README
+CHARIS ATELIER - README
 
 ==================================================
 
-✨ CharisAtelier
+🛍️ Charis Atelier  
 A modern multi-vendor e-commerce platform for artisanal, ethnic, and curated lifestyle products.
 
 --------------------------------------------------
 
-📖 TABLE OF CONTENTS
-- Features
-- Tech Stack
-- System Architecture
-- Database Design
-- API Overview
-- Getting Started
-- Screenshots (placeholder)
-- Future Improvements
-- Contributing
-- License
+📦 SUBMISSION STRUCTURE (IMPORTANT)
+
+ZIP File Name:
+2305088_2305080.zip
+
+Inside the ZIP:
+
+2305088_2305080/
+├── client/                # Frontend (Next.js)
+├── server/                # Backend (Node.js + Express)
+├── database/
+│   ├── schema.sql         # Create all tables
+│   └── seed.sql           # Insert sample data
+└── README.txt             # This file
+
+
 
 --------------------------------------------------
 
@@ -32,30 +36,30 @@ A modern multi-vendor e-commerce platform for artisanal, ethnic, and curated lif
 👤 Role-Based Access
 - Customer: Browse, order, cancel, track
 - Seller: Manage products & orders
-- Admin: Manage platform, payouts, delivery
-- Delivery: Handle deliveries
+- Admin: Manage platform, delivery, payouts
+- Delivery Man: Handle assigned deliveries
 
 💳 Checkout System
-- Stock locking (FOR UPDATE)
-- Promo & discount system
-- COD / Online-ready payment
-- Delivery charge integration
+- Stock locking using transactions (FOR UPDATE)
+- Promo & discount support
+- Cash on Delivery (COD) system
+- Delivery charge calculation
 
 📦 Order System
-- Seller confirm/cancel
+- Seller confirm/cancel orders
 - Delivery lifecycle:
   not_ready → shipment_ready → out_for_delivery → delivered
 - Order timeline tracking
 
 💰 Payout System
-- Admin payout creation
-- Delivered-order-based payout
-- Payment tracking
+- Admin-controlled payout generation
+- Based on delivered orders
+- Payment tracking system
 
 🎨 UI/UX
-- Glassmorphism + gradients
-- Responsive design
-- Unified theme (beige / purple / sky blue)
+- Modern glassmorphism design
+- Responsive layout
+- Consistent theme (beige / purple / sky blue)
 
 --------------------------------------------------
 
@@ -83,10 +87,10 @@ Customer → Checkout → Order Created
          → Delivered → Payout Eligible
 
 Key Concepts:
-- Transaction safety
-- Role middleware
-- Modular routing
-- State-driven workflow
+- Transaction-safe checkout
+- Role-based middleware
+- Modular backend routing
+- State-driven order workflow
 
 --------------------------------------------------
 
@@ -94,29 +98,30 @@ Key Concepts:
 
 Core Tables:
 - users
-- sellers
 - customers
+- sellers
 - admin
-- products
+- delivery_man
 - store
+- products
 - orders
 - order_items
 - order_status
 - payouts
 
 Highlights:
-- Relational integrity
-- Cascading deletes
-- Stock locking
-- Timeline tracking
+- Strong relational integrity
+- Foreign key constraints
+- Stock locking for consistency
+- Order timeline tracking
 
 --------------------------------------------------
 
 🔌 API OVERVIEW
 
 Auth:
-- POST /api/auth/login
 - POST /api/auth/register
+- POST /api/auth/login
 
 Products:
 - GET /api/public/products
@@ -138,53 +143,61 @@ Payout:
 
 --------------------------------------------------
 
-🚀 GETTING STARTED
+🚀 SETUP & RUN INSTRUCTIONS
 
-1. Clone repo:
-git clone https://github.com/your-username/CharisAtelier.git
+1. Extract ZIP:
+unzip 2305088_2305080.zip
+cd 2305088_2305080
 
-2. Install dependencies:
-cd client && npm install
-cd server && npm install
+2. Setup Database (PostgreSQL):
+Run:
+\i database/schema.sql
 
-3. Setup .env:
+
+3. Backend Setup:
+cd server
+npm install
+
+Create .env:
 PORT=5000
-DATABASE_URL=your_db
-JWT_SECRET=your_secret
+DATABASE_URL=your_postgresql_connection_string
+JWT_SECRET=your_secret_key
 
-4. Run:
-cd server && npm run dev
-cd client && npm run dev
+Run backend:
+npm run dev
 
-5. Open:
-http://localhost:3000
+4. Frontend Setup:
+cd client
+npm install
+npm run dev
+
+5. Access:
+Frontend: http://localhost:3000
+Backend:  http://localhost:5000
 
 --------------------------------------------------
 
 📸 SCREENSHOTS
-(Add your UI screenshots here)
+(Add screenshots if required)
 
 --------------------------------------------------
 
 🚀 FUTURE IMPROVEMENTS
 - Online payment integration
 - Real-time notifications
-- Analytics dashboard
-- Mobile app version
-
---------------------------------------------------
-
-🤝 CONTRIBUTING
-- Fork repo
-- Create branch
-- Commit
-- PR
+- Advanced analytics dashboard
+- Mobile application
 
 --------------------------------------------------
 
 📜 LICENSE
-MIT License
+For academic use only.
 
 --------------------------------------------------
 
-✨ Built with passion for combining technology, art, and commerce.
+✨ PROJECT NOTE
+This project demonstrates a complete full-stack e-commerce system with:
+- multi-role architecture
+- transaction-safe checkout
+- real-world delivery workflow
+- scalable backend design
